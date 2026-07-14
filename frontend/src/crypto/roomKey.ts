@@ -68,14 +68,19 @@ export class RoomKey {
   }
 
   async encrypt(plaintext: string): Promise<string> {
+    return this.encryptBytes(new TextEncoder().encode(plaintext))
+  }
+
+  async decrypt(payload: string): Promise<string> {
+    const pt = await this.decryptBytes(payload)
+    return new TextDecoder().decode(pt)
+  }
+
+  async encryptBytes(bytes: Uint8Array): Promise<string> {
     const subtle = ensureCryptoSubtle()
     const iv = crypto.getRandomValues(new Uint8Array(IV_LEN))
     const ct = new Uint8Array(
-      await subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        this.key,
-        new TextEncoder().encode(plaintext)
-      )
+      await subtle.encrypt({ name: 'AES-GCM', iv }, this.key, bytes as BufferSource)
     )
     const combined = new Uint8Array(iv.length + ct.length)
     combined.set(iv, 0)
@@ -83,12 +88,12 @@ export class RoomKey {
     return bytesToB64(combined)
   }
 
-  async decrypt(payload: string): Promise<string> {
+  async decryptBytes(payload: string): Promise<Uint8Array> {
     const subtle = ensureCryptoSubtle()
     const combined = b64ToBytes(payload)
     const iv = combined.slice(0, IV_LEN)
     const ct = combined.slice(IV_LEN)
     const pt = await subtle.decrypt({ name: 'AES-GCM', iv }, this.key, ct)
-    return new TextDecoder().decode(pt)
+    return new Uint8Array(pt)
   }
 }

@@ -1,8 +1,78 @@
+.chat-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: #000000;
+  border-top: 2px solid #00D7D7;
+}
+
+.chat-input-error {
+  padding: 2px 8px;
+  background: #D70000;
+  color: #FFFF00;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.chat-input-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #000000;
+  border-bottom: 1px solid #00D7D7;
+}
+
+.chat-input-preview img,
+.chat-input-preview video {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid #00D7D7;
+  background: #000;
+}
+
+.chat-input-preview-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-input-preview-name {
+  font-size: 18px;
+  color: #FFFF00;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'VT323', 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.chat-input-preview-size {
+  font-size: 16px;
+  color: #00FFFF;
+  font-family: 'VT323', 'Courier New', monospace;
+}
+
+.chat-input-preview-remove {
+  background: #000000;
+  color: #FF0000;
+  border: 1px solid #FF0000;
+  cursor: pointer;
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  font-family: 'VT323', 'Courier New', monospace;
+}
+
+.chat-input-preview-remove:hover {
+  background: #FF0000;
+  color: #000000;
+}
+
 .chat-input {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  border-top: 2px solid #00D7D7;
   background: #000000;
   gap: 4px;
 }
@@ -15,7 +85,7 @@
   user-select: none;
 }
 
-.chat-input input {
+.chat-input input[type='text'] {
   flex: 1;
   padding: 0 4px;
   border: none;
@@ -29,11 +99,11 @@
   letter-spacing: 1px;
 }
 
-.chat-input input::placeholder {
+.chat-input input[type='text']::placeholder {
   color: #555555;
 }
 
-.chat-input input:disabled {
+.chat-input input[type='text']:disabled {
   color: #555555;
   cursor: not-allowed;
 }
@@ -50,6 +120,18 @@
   letter-spacing: 1px;
 }
 
+.chat-input button.chat-input-attach {
+  padding: 0 8px;
+  color: #FFFF00;
+  border-color: #FFFF00;
+  font-size: 18px;
+}
+
+.chat-input button.chat-input-attach:hover:not(:disabled) {
+  background: #FFFF00;
+  color: #000000;
+}
+
 .chat-input button:hover:not(:disabled) {
   background: #00FF00;
   color: #000000;
@@ -59,4 +141,9 @@
   color: #333333;
   border-color: #333333;
   cursor: not-allowed;
+}
+
+.chat-input button.chat-input-attach:disabled {
+  color: #333333;
+  border-color: #333333;
 }

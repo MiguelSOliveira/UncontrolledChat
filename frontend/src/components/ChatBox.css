@@ -5,6 +5,7 @@
   height: 100%;
   background: #000000;
   color: #D7D7D7;
+  position: relative;
 }
 
 .chat-header {
@@ -58,4 +59,46 @@
   font-size: 18px;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.drop-error {
+  padding: 2px 8px;
+  background: #D70000;
+  color: #FFFF00;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 215, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFF00;
+  pointer-events: none;
+  z-index: 10;
+  border: 3px dashed #00FFFF;
+  font-family: 'VT323', 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.drop-overlay-inner {
+  text-align: center;
+  font-size: 24px;
+}
+
+.drop-overlay-icon {
+  font-size: 48px;
+  margin-bottom: 0.5rem;
+}
+
+.drop-overlay-hint {
+  margin-top: 0.5rem;
+  font-size: 18px;
+  color: #00FFFF;
 }
