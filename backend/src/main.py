@@ -8,13 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import (
     get_all_messages,
+    get_participant,
     get_session,
-    get_user,
     init_db,
     save_message,
-    save_user,
+    save_participant,
 )
-from .models import Message, User
+from .models import Message, Participant
 from .websocket import ConnectionManager
 
 logging.basicConfig(level=logging.INFO)
@@ -46,21 +46,21 @@ app.add_middleware(
 )
 
 
-@app.post("/api/users")
-async def create_user(username: str) -> dict:
-    """Create a new user with the given username."""
+@app.post("/api/participants")
+async def create_participant(username: str) -> dict:
+    """Create a new participant with the given username."""
     if not username or not username.strip():
         raise HTTPException(status_code=400, detail="Username cannot be empty")
 
-    user = User(username=username.strip())
+    participant = Participant(username=username.strip())
     async with await get_session() as session:
-        await save_user(session, user.id, user.username, user.joined_at)
-    logger.info(f"User created: {user.username} ({user.id})")
+        await save_participant(session, participant.id, participant.username, participant.joined_at)
+    logger.info(f"Participant created: {participant.username} ({participant.id})")
 
     return {
-        "id": user.id,
-        "username": user.username,
-        "joined_at": user.joined_at.isoformat(),
+        "id": participant.id,
+        "username": participant.username,
+        "joined_at": participant.joined_at.isoformat(),
     }
 
 
@@ -72,28 +72,28 @@ async def get_messages() -> list[dict]:
     return [row.to_dict() for row in rows]
 
 
-@app.get("/api/users")
-async def get_users() -> list[dict]:
-    """Get all active users (currently connected via WebSocket)."""
+@app.get("/api/participants")
+async def get_participants() -> list[dict]:
+    """Get all active participants (currently connected via WebSocket)."""
     return []
 
 
-@app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
+@app.websocket("/ws/{participant_id}")
+async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
     """WebSocket endpoint for real-time messaging."""
     async with await get_session() as session:
-        user_row = await get_user(session, user_id)
+        participant = await get_participant(session, participant_id)
 
-    if user_row is None:
-        await websocket.close(code=1008, reason="User not found")
+    if participant is None:
+        await websocket.close(code=1008, reason="Participant not found")
         return
 
     await manager.connect(websocket)
 
     join_message = {
         "type": "user_joined",
-        "username": user_row.username,
-        "user_id": user_row.id,
+        "username": participant.username,
+        "user_id": participant.id,
     }
     await manager.broadcast(join_message)
 
@@ -106,8 +106,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                 if content:
                     msg = Message(
                         content=content,
-                        user_id=user_row.id,
-                        username=user_row.username,
+                        user_id=participant.id,
+                        username=participant.username,
                     )
                     async with await get_session() as session:
                         await save_message(
@@ -119,7 +119,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                             msg.created_at,
                         )
                     logger.info(
-                        f"Encrypted message from {user_row.username} ({len(content)} chars)"
+                        f"Encrypted message from {participant.username} ({len(content)} chars)"
                     )
 
                     await manager.broadcast(
@@ -132,11 +132,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
         manager.disconnect(websocket)
         leave_message = {
             "type": "user_left",
-            "username": user_row.username,
-            "user_id": user_row.id,
+            "username": participant.username,
+            "user_id": participant.id,
         }
         await manager.broadcast(leave_message)
-        logger.info(f"User disconnected: {user_row.username}")
+        logger.info(f"Participant disconnected: {participant.username}")
 
 
 if __name__ == "__main__":

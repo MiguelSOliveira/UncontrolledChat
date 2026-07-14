@@ -5,7 +5,7 @@ import MessageList from './MessageList'
 import ChatInput from './ChatInput'
 import './ChatBox.css'
 
-interface User {
+interface Participant {
   id: string
   username: string
 }
@@ -25,7 +25,7 @@ interface SystemMessage {
 }
 
 interface ChatBoxProps {
-  user: User
+  participant: Participant
   roomKey: RoomKey
   onLogout: () => void
 }
@@ -41,9 +41,9 @@ async function decryptMessage(msg: Message, roomKey: RoomKey): Promise<Message> 
   }
 }
 
-export default function ChatBox({ user, roomKey, onLogout }: ChatBoxProps) {
+export default function ChatBox({ participant, roomKey, onLogout }: ChatBoxProps) {
   const [messages, setMessages] = useState<(Message | SystemMessage)[]>([])
-  const { ws, isConnected } = useWebSocket(user.id, async (msg) => {
+  const { ws, isConnected } = useWebSocket(participant.id, async (msg) => {
     if (msg.type === 'message') {
       const decrypted = await decryptMessage(msg, roomKey)
       setMessages((prev) => [...prev, decrypted])
@@ -83,7 +83,7 @@ export default function ChatBox({ user, roomKey, onLogout }: ChatBoxProps) {
         <div>
           <h2>Chat Room 🔒</h2>
           <p className="user-info">
-            Logged in as: <strong>{user.username}</strong>
+            Logged in as: <strong>{participant.username}</strong>
           </p>
         </div>
         <button className="logout-btn" onClick={onLogout}>

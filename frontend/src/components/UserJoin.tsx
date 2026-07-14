@@ -2,8 +2,13 @@ import { useState } from 'react'
 import { RoomKey } from '../crypto/roomKey'
 import './UserJoin.css'
 
+interface Participant {
+  id: string
+  username: string
+}
+
 interface UserJoinProps {
-  onUserJoined: (user: { id: string; username: string }, roomKey: RoomKey) => void
+  onUserJoined: (participant: Participant, roomKey: RoomKey) => void
 }
 
 export default function UserJoin({ onUserJoined }: UserJoinProps) {
@@ -30,7 +35,7 @@ export default function UserJoin({ onUserJoined }: UserJoinProps) {
       const roomKey = await RoomKey.fromPassphrase(passphrase)
 
       const response = await fetch(
-        `/api/users?username=` + encodeURIComponent(username),
+        `/api/participants?username=` + encodeURIComponent(username),
         {
           method: 'POST'
         }
@@ -41,8 +46,8 @@ export default function UserJoin({ onUserJoined }: UserJoinProps) {
         throw new Error(data.detail || 'Failed to join chat')
       }
 
-      const user = await response.json()
-      onUserJoined(user, roomKey)
+      const participant = await response.json()
+      onUserJoined(participant, roomKey)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {

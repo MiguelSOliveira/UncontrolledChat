@@ -4,13 +4,13 @@ import UserJoin from './components/UserJoin'
 import ChatBox from './components/ChatBox'
 import { RoomKey } from './crypto/roomKey'
 
-interface User {
+interface Participant {
   id: string
   username: string
 }
 
 function App() {
-  const [user, setUser] = useState<User | null>(null)
+  const [participant, setParticipant] = useState<Participant | null>(null)
   const [roomKey, setRoomKey] = useState<RoomKey | null>(null)
 
   return (
@@ -19,19 +19,19 @@ function App() {
         <h1>UncontrolledChat 🔒</h1>
       </header>
       <main>
-        {!user || !roomKey ? (
+        {!participant || !roomKey ? (
           <UserJoin
-            onUserJoined={(u, k) => {
-              setUser(u)
+            onUserJoined={(p, k) => {
+              setParticipant(p)
               setRoomKey(k)
             }}
           />
         ) : (
           <ChatBox
-            user={user}
+            participant={participant}
             roomKey={roomKey}
             onLogout={() => {
-              setUser(null)
+              setParticipant(null)
               setRoomKey(null)
             }}
           />
