@@ -8,13 +8,21 @@ A real-time encrypted group chat where all participants sharing the same passphr
 A person present in a chat session, identified by a self-chosen display name. A Participant has no persistent account — the identity is ephemeral and lasts only for the duration of the session.
 _Avoid_: User, member, account, client
 
+**Bot**:
+An automated broadcaster that injects Payloads directly into the server's broadcast channel without joining as a Participant. A Bot belongs to exactly one Key Space (it encrypts with a fixed Passphrase) and has no session lifecycle — it does not trigger JOIN or LEAVE events.
+_Avoid_: Agent, user, participant, service
+
 **Username**:
-The display name a Participant picks at join time. Not unique and not authenticated — two different people can pick the same username.
+The display name a Participant or Bot uses to identify itself. Not unique and not authenticated — two different people can pick the same username, and a Bot's username is fixed at deployment time.
 _Avoid_: Handle, nickname, identity
 
 **Message**:
 The plaintext content a Participant writes and intends to send. A Message exists only on the client; it is never transmitted or stored in plaintext.
 _Avoid_: Chat, post, text
+
+**Command**:
+A typed instruction prefixed with `/` that triggers a client or server action instead of producing a Message. Commands are never transmitted as Payloads and never stored. Examples: `/news`, `/crypto`, `/clear`, `/?`.
+_Avoid_: Message, chat command, slash command
 
 **Payload**:
 The encrypted blob the server stores and broadcasts. A Payload is derived from a Message by the sender's client using the Room Key, and is the only form of content the server ever sees.
@@ -29,5 +37,9 @@ The AES-GCM symmetric key derived from a Passphrase via PBKDF2. Two clients with
 _Avoid_: Encryption key, crypto key, secret key
 
 **Key Space**:
-The set of all Messages readable by holders of a given Passphrase. There is no explicit Room entity — the Key Space is the only meaningful grouping of Participants and Messages.
+The set of all Messages readable by holders of a given Passphrase. There is no explicit Room entity — the Key Space is the only meaningful grouping of Participants, Bots, and Messages.
 _Avoid_: Room, channel, group, chat room
+
+**History Clear**:
+The act of deleting all persisted Payloads from the server and broadcasting a wipe event so every connected client empties its local message view. A History Clear affects the entire Key Space, not just the client that triggered it.
+_Avoid_: Clear chat, delete messages, reset
