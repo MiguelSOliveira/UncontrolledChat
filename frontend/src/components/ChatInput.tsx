@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import './ChatInput.css'
 import {
   ACCEPTED_MIME,
@@ -15,19 +15,27 @@ interface ChatInputProps {
   onPendingFileChange: (file: File | null) => void
 }
 
-export default function ChatInput({
+export interface ChatInputHandle {
+  focus: () => void
+}
+
+const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput({
   onSendMessage,
   onSendMedia,
   disabled,
   pendingFile,
   onPendingFileChange
-}: ChatInputProps) {
+}, ref) {
   const [message, setMessage] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => textInputRef.current?.focus(),
+  }))
 
   useEffect(() => {
     if (!pendingFile) {
@@ -156,4 +164,6 @@ export default function ChatInput({
       </div>
     </form>
   )
-}
+})
+
+export default ChatInput
