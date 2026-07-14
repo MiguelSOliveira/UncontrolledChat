@@ -27,7 +27,13 @@ interface SystemMessage {
   user_id: string
 }
 
-export type ChatMessage = TextMessage | MediaMessage | SystemMessage
+interface LocalMessage {
+  id: string
+  type: 'system'
+  text: string
+}
+
+export type ChatMessage = TextMessage | MediaMessage | SystemMessage | LocalMessage
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -35,6 +41,10 @@ interface MessageListProps {
 
 function isSystem(msg: ChatMessage): msg is SystemMessage {
   return 'type' in msg && (msg.type === 'user_joined' || msg.type === 'user_left')
+}
+
+function isLocal(msg: ChatMessage): msg is LocalMessage {
+  return 'type' in msg && msg.type === 'system' && 'text' in msg
 }
 
 const NICK_COLORS = [
@@ -137,6 +147,14 @@ export default function MessageList({ messages }: MessageListProps) {
   return (
     <div className="message-list">
       {messages.map((msg) => {
+        if (isLocal(msg)) {
+          return (
+            <span key={msg.id} className="system-line" style={{ whiteSpace: 'pre' }}>
+              {msg.text}
+            </span>
+          )
+        }
+
         if (isSystem(msg)) {
           const action = msg.type === 'user_joined' ? 'HAS JOINED' : 'HAS LEFT'
           return (

@@ -118,7 +118,36 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
       .catch(console.error)
   }, [isConnected, roomKey])
 
+  const COMMANDS = [
+    { cmd: '/news', desc: 'Fetch the latest BBC headline now' },
+    { cmd: '/?',   desc: 'Show this help' },
+  ]
+
+  const injectLocal = (text: string) =>
+    setMessages((prev) => [
+      ...prev,
+      { id: randomId(), type: 'system' as const, text },
+    ])
+
   const handleSendMessage = async (content: string) => {
+    const cmd = content.trim()
+
+    if (cmd === '/?') {
+      const lines = ['Available commands:', ...COMMANDS.map((c) => `  ${c.cmd.padEnd(10)} — ${c.desc}`)]
+      injectLocal(lines.join('\n'))
+      return
+    }
+
+    if (cmd === '/news') {
+      await fetch('/api/news', { method: 'POST' }).catch(console.error)
+      return
+    }
+
+    if (cmd.startsWith('/')) {
+      injectLocal(`Unknown command: ${cmd}  (type /? for help)`)
+      return
+    }
+
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     const ciphertext = await roomKey.encrypt(content)
     ws.send(JSON.stringify({ type: 'message', content: ciphertext }))

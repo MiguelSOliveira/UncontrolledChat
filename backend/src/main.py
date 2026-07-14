@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .btc_bot import run_btc_bot
+from .news_bot import fetch_and_broadcast_one, run_news_bot
 from .database import (
     get_all_messages,
     get_participant,
@@ -33,15 +34,18 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialised.")
     bot_task = asyncio.create_task(run_btc_bot(manager))
+    news_task = asyncio.create_task(run_news_bot(manager))
     try:
         yield
     finally:
         logger.info("UncontrolledChat backend shutting down...")
         bot_task.cancel()
-        try:
-            await bot_task
-        except asyncio.CancelledError:
-            pass
+        news_task.cancel()
+        for task in (bot_task, news_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="UncontrolledChat API", lifespan=lifespan)
@@ -86,6 +90,13 @@ async def get_messages() -> list[dict]:
 async def get_participants() -> list[dict]:
     """Get all active participants (currently connected via WebSocket)."""
     return []
+
+
+@app.post("/api/news")
+async def trigger_news() -> dict:
+    """Immediately broadcast the next BBC headline to all connected clients."""
+    await fetch_and_broadcast_one(manager)
+    return {"ok": True}
 
 
 @app.websocket("/ws/{participant_id}")
