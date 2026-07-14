@@ -17,10 +17,18 @@
 }
 
 .user-join-card h2 {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   text-align: center;
   color: #111;
   font-weight: 500;
+}
+
+.user-join-card .hint {
+  margin-bottom: 1.25rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .user-join-card form {
