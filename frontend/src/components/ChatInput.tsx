@@ -27,6 +27,7 @@ export default function ChatInput({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!pendingFile) {
@@ -80,6 +81,7 @@ export default function ChatInput({
     if (message.trim()) {
       onSendMessage(message)
       setMessage('')
+      textInputRef.current?.focus()
     }
   }
 
@@ -138,6 +140,7 @@ export default function ChatInput({
         />
         <span className="chat-input-prompt">&#62;</span>
         <input
+          ref={textInputRef}
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -145,6 +148,7 @@ export default function ChatInput({
           placeholder={pendingFile ? 'add a caption...' : 'type here...'}
           disabled={disabled || sending}
           autoComplete="off"
+          autoFocus
         />
         <button type="submit" disabled={!canSend}>
           {sending ? '...' : 'SEND'}

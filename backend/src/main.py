@@ -1,11 +1,14 @@
 """FastAPI backend for UncontrolledChat."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from .btc_bot import run_btc_bot
+from .news_bot import fetch_and_broadcast_one, run_news_bot
 from .database import (
     get_all_messages,
     get_participant,
@@ -30,8 +33,19 @@ async def lifespan(app: FastAPI):
     logger.info("UncontrolledChat backend starting...")
     await init_db()
     logger.info("Database initialised.")
-    yield
-    logger.info("UncontrolledChat backend shutting down...")
+    bot_task = asyncio.create_task(run_btc_bot(manager))
+    news_task = asyncio.create_task(run_news_bot(manager))
+    try:
+        yield
+    finally:
+        logger.info("UncontrolledChat backend shutting down...")
+        bot_task.cancel()
+        news_task.cancel()
+        for task in (bot_task, news_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="UncontrolledChat API", lifespan=lifespan)
@@ -76,6 +90,13 @@ async def get_messages() -> list[dict]:
 async def get_participants() -> list[dict]:
     """Get all active participants (currently connected via WebSocket)."""
     return []
+
+
+@app.post("/api/news")
+async def trigger_news() -> dict:
+    """Immediately broadcast the next BBC headline to all connected clients."""
+    await fetch_and_broadcast_one(manager)
+    return {"ok": True}
 
 
 @app.websocket("/ws/{participant_id}")
@@ -137,15 +158,15 @@ async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
                 if not ciphertext:
                     continue
                 logger.info(
-                    f"Encrypted media from {user_row.username} "
+                    f"Encrypted media from {participant.username} "
                     f"(~{len(ciphertext)} b64 chars)"
                 )
                 await manager.broadcast(
                     {
                         "type": "media",
                         "id": data.get("id"),
-                        "user_id": user_row.id,
-                        "username": user_row.username,
+                        "user_id": participant.id,
+                        "username": participant.username,
                         "ciphertext": ciphertext,
                         "created_at": data.get("created_at"),
                     }
