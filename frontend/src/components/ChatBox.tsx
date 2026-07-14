@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { RoomKey } from '../crypto/roomKey'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
 import './ChatBox.css'
@@ -25,42 +26,65 @@ interface SystemMessage {
 
 interface ChatBoxProps {
   user: User
+  roomKey: RoomKey
   onLogout: () => void
 }
 
-export default function ChatBox({ user, onLogout }: ChatBoxProps) {
+const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
+
+async function decryptMessage(msg: Message, roomKey: RoomKey): Promise<Message> {
+  try {
+    const plaintext = await roomKey.decrypt(msg.content)
+    return { ...msg, content: plaintext }
+  } catch {
+    return { ...msg, content: DECRYPT_FAILED }
+  }
+}
+
+export default function ChatBox({ user, roomKey, onLogout }: ChatBoxProps) {
   const [messages, setMessages] = useState<(Message | SystemMessage)[]>([])
-  const { ws, isConnected } = useWebSocket(user.id, (msg) => {
-    setMessages((prev) => [...prev, msg])
+  const { ws, isConnected } = useWebSocket(user.id, async (msg) => {
+    if (msg.type === 'message') {
+      const decrypted = await decryptMessage(msg, roomKey)
+      setMessages((prev) => [...prev, decrypted])
+    } else {
+      setMessages((prev) => [...prev, msg])
+    }
   })
 
   useEffect(() => {
     if (!isConnected) return
 
-    // Fetch message history
     fetch(`/api/messages`)
       .then((res) => res.json())
-      .then((data) => setMessages(data))
+      .then(async (data: Message[]) => {
+        const decrypted = await Promise.all(
+          data.map((m) => decryptMessage(m, roomKey))
+        )
+        setMessages(decrypted)
+      })
       .catch(console.error)
-  }, [isConnected])
+  }, [isConnected, roomKey])
 
-  const handleSendMessage = (content: string) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          type: 'message',
-          content
-        })
-      )
-    }
+  const handleSendMessage = async (content: string) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    const ciphertext = await roomKey.encrypt(content)
+    ws.send(
+      JSON.stringify({
+        type: 'message',
+        content: ciphertext
+      })
+    )
   }
 
   return (
     <div className="chat-box">
       <div className="chat-header">
         <div>
-          <h2>Chat Room</h2>
-          <p className="user-info">Logged in as: <strong>{user.username}</strong></p>
+          <h2>Chat Room 🔒</h2>
+          <p className="user-info">
+            Logged in as: <strong>{user.username}</strong>
+          </p>
         </div>
         <button className="logout-btn" onClick={onLogout}>
           Leave Chat
