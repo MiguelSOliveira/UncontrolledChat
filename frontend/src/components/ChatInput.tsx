@@ -31,11 +31,11 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyPress={handleKeyPress}
-        placeholder="Type a message..."
+        placeholder="Message..."
         disabled={disabled}
       />
       <button type="submit" disabled={disabled || !message.trim()}>
-        Send
+        ➤
       </button>
     </form>
   )

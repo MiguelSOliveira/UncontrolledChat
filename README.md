@@ -23,7 +23,9 @@ A real-time chat application built with FastAPI (Python backend) and React (Type
 - Node.js 18+
 - npm or yarn
 
-### Backend Setup
+### Quick Start
+
+**Terminal 1 - Start Backend:**
 
 ```bash
 cd backend
@@ -32,10 +34,10 @@ python -m src.main
 ```
 
 The backend will start on `http://localhost:8000`
+- WebSocket: `ws://localhost:8000`
+- API docs: `http://localhost:8000/docs`
 
-API docs available at `http://localhost:8000/docs`
-
-### Frontend Setup
+**Terminal 2 - Start Frontend:**
 
 ```bash
 cd frontend
@@ -44,6 +46,55 @@ npm run dev
 ```
 
 The frontend will start on `http://localhost:3000`
+
+### How to Use the Chat
+
+1. **Open the app**: Navigate to `http://localhost:3000` in your browser
+2. **Join the chat**: Enter your username and click "Join Chat"
+3. **Send messages**: Type a message and press Enter or click the send button
+4. **See real-time updates**: 
+   - Messages from other users appear instantly
+   - Get notifications when users join/leave
+5. **Leave**: Click "Leave Chat" to disconnect
+
+### Connect Multiple Users
+
+Open multiple browser windows/tabs at `http://localhost:3000`:
+- Each can join with a different username
+- Messages broadcast to all connected users in real-time
+- System messages show when users join/leave
+
+### Technical Details
+
+**Backend API Endpoints:**
+
+- `POST /api/users?username=<name>` - Create a new user
+- `GET /api/users` - Get all active users
+- `GET /api/messages` - Get message history
+- `WebSocket /ws/{user_id}` - Real-time messaging connection
+
+**Message Format:**
+
+```json
+{
+  "type": "message",
+  "content": "Hello!",
+  "user_id": "abc123",
+  "username": "John",
+  "id": "msg123",
+  "created_at": "2024-07-14T14:00:00"
+}
+```
+
+**System Events:**
+
+```json
+{
+  "type": "user_joined",
+  "username": "John",
+  "user_id": "abc123"
+}
+```
 
 ## Development
 

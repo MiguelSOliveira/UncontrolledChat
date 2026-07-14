@@ -32,8 +32,10 @@ export default function MessageList({ messages }: MessageListProps) {
         if ('content' in msg) {
           return (
             <div key={msg.id} className="message">
-              <span className="username">{msg.username}</span>
-              <span className="content">{msg.content}</span>
+              <div>
+                <span className="username">{msg.username}</span>
+                <div className="message-bubble">{msg.content}</div>
+              </div>
             </div>
           )
         } else {
