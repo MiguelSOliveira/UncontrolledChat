@@ -93,6 +93,10 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   const [dropError, setDropError] = useState<string | null>(null)
   const { ws, isConnected } = useWebSocket(participant.id, async (msg) => {
     onMessageReceived?.()
+    if (msg.type === 'clear') {
+      setMessages([])
+      return
+    }
     if (msg.type === 'message') {
       const decrypted = await decryptTextMessage(msg, roomKey)
       setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
@@ -121,6 +125,7 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   const COMMANDS = [
     { cmd: '/news',   desc: 'Fetch the latest BBC headline now' },
     { cmd: '/crypto', desc: 'Fetch the latest BTC price now' },
+    { cmd: '/clear',  desc: 'Remove all messages from the room' },
     { cmd: '/?',      desc: 'Show this help' },
   ]
 
@@ -136,6 +141,11 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     if (cmd === '/?') {
       const lines = ['Available commands:', ...COMMANDS.map((c) => `  ${c.cmd.padEnd(10)} — ${c.desc}`)]
       injectLocal(lines.join('\n'))
+      return
+    }
+
+    if (cmd === '/clear') {
+      await fetch('/api/messages', { method: 'DELETE' }).catch(console.error)
       return
     }
 
