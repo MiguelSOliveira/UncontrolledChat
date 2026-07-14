@@ -26,16 +26,18 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
 
   return (
     <form className="chat-input" onSubmit={handleSubmit}>
+      <span className="chat-input-prompt">&#62;</span>
       <input
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyPress={handleKeyPress}
-        placeholder="Message..."
+        placeholder="type here..."
         disabled={disabled}
+        autoComplete="off"
       />
       <button type="submit" disabled={disabled || !message.trim()}>
-        ➤
+        SEND
       </button>
     </form>
   )

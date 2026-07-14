@@ -19,6 +19,26 @@ interface MessageListProps {
   messages: (Message | SystemMessage)[]
 }
 
+// ZX Spectrum bright nick colors (excluding black/white for readability)
+const NICK_COLORS = [
+  '#00FF00', // bright green
+  '#00FFFF', // bright cyan
+  '#FFFF00', // bright yellow
+  '#FF00FF', // bright magenta
+  '#FF0000', // bright red
+  '#0000FF', // bright blue
+  '#00D7D7', // cyan
+  '#D700D7', // magenta
+]
+
+function nickColor(username: string): string {
+  let hash = 0
+  for (let i = 0; i < username.length; i++) {
+    hash = (hash * 31 + username.charCodeAt(i)) & 0xffffffff
+  }
+  return NICK_COLORS[Math.abs(hash) % NICK_COLORS.length]
+}
+
 export default function MessageList({ messages }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -31,19 +51,20 @@ export default function MessageList({ messages }: MessageListProps) {
       {messages.map((msg) => {
         if ('content' in msg) {
           return (
-            <div key={msg.id} className="message">
-              <div>
-                <span className="username">{msg.username}</span>
-                <div className="message-bubble">{msg.content}</div>
-              </div>
-            </div>
+            <span key={msg.id} className="message-line">
+              <span className="message-nick" style={{ color: nickColor(msg.username) }}>
+                &lt;{msg.username.toUpperCase()}&gt;
+              </span>
+              {' '}
+              <span className="message-text">{msg.content}</span>
+            </span>
           )
         } else {
-          const action = msg.type === 'user_joined' ? 'joined' : 'left'
+          const action = msg.type === 'user_joined' ? 'HAS JOINED' : 'HAS LEFT'
           return (
-            <div key={`${msg.user_id}-${msg.type}`} className="system-message">
-              <em>{msg.username} {action} the chat</em>
-            </div>
+            <span key={`${msg.user_id}-${msg.type}`} className="system-line">
+              *** {msg.username.toUpperCase()} {action} THE CHANNEL
+            </span>
           )
         }
       })}

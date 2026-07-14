@@ -28,6 +28,7 @@ interface ChatBoxProps {
   participant: Participant
   roomKey: RoomKey
   onLogout: () => void
+  onMessageReceived?: () => void
 }
 
 const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
@@ -41,9 +42,10 @@ async function decryptMessage(msg: Message, roomKey: RoomKey): Promise<Message> 
   }
 }
 
-export default function ChatBox({ participant, roomKey, onLogout }: ChatBoxProps) {
+export default function ChatBox({ participant, roomKey, onLogout, onMessageReceived }: ChatBoxProps) {
   const [messages, setMessages] = useState<(Message | SystemMessage)[]>([])
   const { ws, isConnected } = useWebSocket(participant.id, async (msg) => {
+    onMessageReceived?.()
     if (msg.type === 'message') {
       const decrypted = await decryptMessage(msg, roomKey)
       setMessages((prev) => [...prev, decrypted])
@@ -81,13 +83,13 @@ export default function ChatBox({ participant, roomKey, onLogout }: ChatBoxProps
     <div className="chat-box">
       <div className="chat-header">
         <div>
-          <h2>Chat Room 🔒</h2>
+          <h2>#UNCONTROLLEDCHAT 🔒</h2>
           <p className="user-info">
-            Logged in as: <strong>{participant.username}</strong>
+            NICK: <strong>{participant.username.toUpperCase()}</strong>
           </p>
         </div>
         <button className="logout-btn" onClick={onLogout}>
-          Leave Chat
+          /QUIT
         </button>
       </div>
       <MessageList messages={messages} />

@@ -1,11 +1,11 @@
 :root {
-  color-scheme: light;
-  background-color: #ece5dd;
-  color: #111;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica',
-    'Arial', sans-serif;
-  line-height: 1.5;
+  color-scheme: dark;
+  background-color: #000000;
+  color: #D7D7D7;
+  font-family: 'VT323', 'Courier New', monospace;
+  font-size: 20px;
+  line-height: 1.3;
+  image-rendering: pixelated;
 }
 
 * {
@@ -14,27 +14,79 @@
   box-sizing: border-box;
 }
 
+/* Spectrum border wrapper — animates on message receive */
+.spectrum-border {
+  padding: 48px;
+  background: #0000D7;
+  height: 100vh;
+  background-size: 100% 16px;
+  background-repeat: repeat;
+}
+
+@keyframes spectrum-tape {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 16px; }
+}
+
+.spectrum-border.loading {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #00D7D7 0px,
+    #00D7D7 8px,
+    #D70000 8px,
+    #D70000 16px
+  );
+  animation: spectrum-tape 0.07s linear infinite;
+}
+
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: #ece5dd;
+  height: 100%;
+  background: #000000;
 }
 
 header {
-  background: linear-gradient(180deg, #075e54 0%, #064e4a 100%);
-  color: white;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #0000D7;
+  color: #FFFFFF;
+  padding: 2px 8px;
+  font-size: 20px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 2px solid #00D7D7;
 }
 
 header h1 {
-  font-size: 1.25rem;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: normal;
 }
 
 main {
   flex: 1;
   overflow: hidden;
   display: flex;
+  background: #000000;
+}
+
+
+header {
+  background: #0000D7;
+  color: #FFFFFF;
+  padding: 2px 8px;
+  font-size: 20px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 2px solid #00D7D7;
+}
+
+header h1 {
+  font-size: 20px;
+  font-weight: normal;
+}
+
+main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  background: #000000;
 }
