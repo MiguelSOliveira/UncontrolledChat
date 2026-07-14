@@ -101,7 +101,9 @@ async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
         while True:
             data = await websocket.receive_json()
 
-            if data.get("type") == "message":
+            msg_type = data.get("type")
+
+            if msg_type == "message":
                 content = data.get("content", "").strip()
                 if content:
                     msg = Message(
@@ -128,6 +130,26 @@ async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
                             **msg.to_dict(),
                         }
                     )
+            elif msg_type == "media":
+                # Media messages are relayed but never persisted. The server only
+                # sees ciphertext (mime/name/caption are encrypted client-side).
+                ciphertext = data.get("ciphertext")
+                if not ciphertext:
+                    continue
+                logger.info(
+                    f"Encrypted media from {user_row.username} "
+                    f"(~{len(ciphertext)} b64 chars)"
+                )
+                await manager.broadcast(
+                    {
+                        "type": "media",
+                        "id": data.get("id"),
+                        "user_id": user_row.id,
+                        "username": user_row.username,
+                        "ciphertext": ciphertext,
+                        "created_at": data.get("created_at"),
+                    }
+                )
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         leave_message = {
@@ -142,4 +164,4 @@ async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, ws_max_size=20 * 1024 * 1024)
