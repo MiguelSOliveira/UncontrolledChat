@@ -81,12 +81,20 @@ def _build_broadcast(ciphertext: str) -> dict:
     }
 
 
+INITIAL_DELAY_SECONDS = 30  # offset from BTC bot so they don't fire simultaneously
+
+
 async def run_news_bot(manager: ConnectionManager) -> None:
     """Fetch the latest BBC headline every minute and broadcast it encrypted.
 
-    Cycles through headlines so the same one is not repeated back-to-back.
-    Messages are not persisted — bot chatter won't clutter history on reload.
+    Starts 30 s after launch so it interleaves with the BTC bot instead of
+    firing at the same time (BTC fires at t=0,60,120… news at t=30,90,150…).
     """
+    logger.info(
+        "News bot waiting %ss before first tick (stagger vs BTC bot).",
+        INITIAL_DELAY_SECONDS,
+    )
+    await asyncio.sleep(INITIAL_DELAY_SECONDS)
     logger.info("News bot started (polling every %ss).", POLL_INTERVAL_SECONDS)
 
     while True:

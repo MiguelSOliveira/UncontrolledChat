@@ -122,9 +122,79 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
       .catch(console.error)
   }, [isConnected, roomKey])
 
+  const ASCII_WOMEN = [
+    `
+    .-"""-.
+   /        \\
+  |  O    O  |
+  |    __    |
+   \\  (__)  /
+    '------'
+   /|      |\\
+  / |  ||  | \\
+ /  |  ||  |  \\
+    |__|  |__|
+    |  |  |  |
+   / \\ |  | / \\
+  /   \\|  |/   \\
+`,
+    `
+   ╔══╗
+   ║♥♥║
+   ╚══╝
+  ╭─────╮
+  │ ◠ ◠ │
+  │  ▽  │
+  ╰─────╯
+  ╭──┴──╮
+  │     │
+  ╰──┬──╯
+   ┌─┴─┐
+   │   │
+   └───┘
+`,
+    `
+    *  *
+   * .. *
+  *  __  *
+ * /    \\ *
+* | girl | *
+ *  \\  /  *
+  *  \\/  *
+   * || *
+   * || *
+  *  /\\  *
+ *  /  \\  *
+`,
+    `
+  \\   /
+   \\ /
+  (o o)
+   ) (
+  /|_|\\
+ / | | \\
+   | |
+  _| |_
+ (_____)
+`,
+    `
+   .~.
+   /V\\
+  // \\\\
+ /(   )\\
+  ^"~"^
+  |   |
+ /|   |\\
+/ |   | \\
+  |   |
+ / \\ / \\
+`,
+  ]
+
   const COMMANDS = [
     { cmd: '/news',   desc: 'Fetch the latest BBC headline now' },
     { cmd: '/crypto', desc: 'Fetch the latest BTC price now' },
+    { cmd: '/p0rn',   desc: 'Post a surprise ASCII art in the room' },
     { cmd: '/clear',  desc: 'Remove all messages from the room' },
     { cmd: '/?',      desc: 'Show this help' },
   ]
@@ -141,6 +211,14 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     if (cmd === '/?') {
       const lines = ['Available commands:', ...COMMANDS.map((c) => `  ${c.cmd.padEnd(10)} — ${c.desc}`)]
       injectLocal(lines.join('\n'))
+      return
+    }
+
+    if (cmd === '/p0rn') {
+      const art = ASCII_WOMEN[Math.floor(Math.random() * ASCII_WOMEN.length)]
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+      const ciphertext = await roomKey.encrypt(art)
+      ws.send(JSON.stringify({ type: 'message', content: ciphertext }))
       return
     }
 

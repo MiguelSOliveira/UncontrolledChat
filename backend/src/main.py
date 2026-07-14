@@ -1,14 +1,13 @@
 """FastAPI backend for UncontrolledChat."""
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .btc_bot import fetch_and_broadcast_one as btc_fetch_one, run_btc_bot
-from .news_bot import fetch_and_broadcast_one as news_fetch_one, run_news_bot
+from .btc_bot import fetch_and_broadcast_one as btc_fetch_one
+from .news_bot import fetch_and_broadcast_one as news_fetch_one
 from .database import (
     clear_messages,
     get_all_messages,
@@ -34,19 +33,10 @@ async def lifespan(app: FastAPI):
     logger.info("UncontrolledChat backend starting...")
     await init_db()
     logger.info("Database initialised.")
-    bot_task = asyncio.create_task(run_btc_bot(manager))
-    news_task = asyncio.create_task(run_news_bot(manager))
     try:
         yield
     finally:
         logger.info("UncontrolledChat backend shutting down...")
-        bot_task.cancel()
-        news_task.cancel()
-        for task in (bot_task, news_task):
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
 
 
 app = FastAPI(title="UncontrolledChat API", lifespan=lifespan)
