@@ -119,8 +119,9 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   }, [isConnected, roomKey])
 
   const COMMANDS = [
-    { cmd: '/news', desc: 'Fetch the latest BBC headline now' },
-    { cmd: '/?',   desc: 'Show this help' },
+    { cmd: '/news',   desc: 'Fetch the latest BBC headline now' },
+    { cmd: '/crypto', desc: 'Fetch the latest BTC price now' },
+    { cmd: '/?',      desc: 'Show this help' },
   ]
 
   const injectLocal = (text: string) =>
@@ -140,6 +141,11 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
 
     if (cmd === '/news') {
       await fetch('/api/news', { method: 'POST' }).catch(console.error)
+      return
+    }
+
+    if (cmd === '/crypto') {
+      await fetch('/api/crypto', { method: 'POST' }).catch(console.error)
       return
     }
 

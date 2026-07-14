@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .btc_bot import run_btc_bot
-from .news_bot import fetch_and_broadcast_one, run_news_bot
+from .btc_bot import fetch_and_broadcast_one as btc_fetch_one, run_btc_bot
+from .news_bot import fetch_and_broadcast_one as news_fetch_one, run_news_bot
 from .database import (
     get_all_messages,
     get_participant,
@@ -95,7 +95,14 @@ async def get_participants() -> list[dict]:
 @app.post("/api/news")
 async def trigger_news() -> dict:
     """Immediately broadcast the next BBC headline to all connected clients."""
-    await fetch_and_broadcast_one(manager)
+    await news_fetch_one(manager)
+    return {"ok": True}
+
+
+@app.post("/api/crypto")
+async def trigger_crypto() -> dict:
+    """Immediately broadcast a BTC price update to all connected clients."""
+    await btc_fetch_one(manager)
     return {"ok": True}
 
 

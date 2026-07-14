@@ -105,6 +105,21 @@ def _build_broadcast(ciphertext: str) -> dict:
     }
 
 
+_bot_key: bytes = _derive_key(BOT_PASSPHRASE)
+_previous_price: Optional[float] = None
+
+
+async def fetch_and_broadcast_one(manager: ConnectionManager) -> None:
+    """Immediately fetch BTC price and broadcast one update (used by /crypto command)."""
+    global _previous_price
+    current = await fetch_btc_price()
+    if current is not None:
+        plaintext = _format_message(current, _previous_price)
+        ciphertext = _encrypt(plaintext, _bot_key)
+        await manager.broadcast(_build_broadcast(ciphertext))
+        _previous_price = current
+
+
 async def run_btc_bot(manager: ConnectionManager) -> None:
     """Poll the BTC price every minute and broadcast encrypted updates.
 
@@ -112,18 +127,11 @@ async def run_btc_bot(manager: ConnectionManager) -> None:
     normal chat messages (not persisted, so bot chatter doesn't clutter
     history on reload).
     """
-    key = _derive_key(BOT_PASSPHRASE)
-    previous_price: Optional[float] = None
     logger.info("BTC bot started (polling every %ss).", POLL_INTERVAL_SECONDS)
 
     while True:
         try:
-            current = await fetch_btc_price()
-            if current is not None:
-                plaintext = _format_message(current, previous_price)
-                ciphertext = _encrypt(plaintext, key)
-                await manager.broadcast(_build_broadcast(ciphertext))
-                previous_price = current
+            await fetch_and_broadcast_one(manager)
         except asyncio.CancelledError:
             logger.info("BTC bot stopping.")
             raise
