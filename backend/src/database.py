@@ -18,8 +18,8 @@ class Base(DeclarativeBase):
     pass
 
 
-class UserRow(Base):
-    __tablename__ = "users"
+class ParticipantRow(Base):
+    __tablename__ = "participants"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -56,14 +56,14 @@ async def get_session() -> AsyncSession:
     return AsyncSessionLocal()
 
 
-async def save_user(session: AsyncSession, user_id: str, username: str, joined_at: datetime) -> None:
-    row = UserRow(id=user_id, username=username, joined_at=joined_at)
+async def save_participant(session: AsyncSession, participant_id: str, username: str, joined_at: datetime) -> None:
+    row = ParticipantRow(id=participant_id, username=username, joined_at=joined_at)
     session.add(row)
     await session.commit()
 
 
-async def get_user(session: AsyncSession, user_id: str) -> UserRow | None:
-    result = await session.execute(select(UserRow).where(UserRow.id == user_id))
+async def get_participant(session: AsyncSession, participant_id: str) -> ParticipantRow | None:
+    result = await session.execute(select(ParticipantRow).where(ParticipantRow.id == participant_id))
     return result.scalar_one_or_none()
 
 

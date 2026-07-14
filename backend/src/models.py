@@ -5,8 +5,8 @@ from datetime import datetime
 
 
 @dataclass
-class User:
-    """Represents a chat user."""
+class Participant:
+    """A person present in a chat session, identified by a self-chosen username."""
 
     username: str
     id: str = field(default_factory=lambda: __import__("uuid").uuid4().hex)
