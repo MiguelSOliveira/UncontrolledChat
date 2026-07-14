@@ -10,18 +10,15 @@ interface Participant {
 }
 
 const audio = new Audio('/spectrum-load.mp3')
-let audioPosition = 0
 
 function playLoadSound() {
-  audio.currentTime = audioPosition
+  // Pick a random start point, leaving 2s before the end
+  const duration = audio.duration || 30  // fallback until metadata loads
+  const maxStart = Math.max(0, duration - 2)
+  audio.currentTime = Math.random() * maxStart
   audio.play().catch(() => {/* autoplay blocked until first user interaction */})
   setTimeout(() => {
-    audioPosition = audio.currentTime  // remember where we stopped
     audio.pause()
-    // wrap around if we've reached the end
-    if (audioPosition >= audio.duration || isNaN(audio.duration)) {
-      audioPosition = 0
-    }
   }, 2000)
 }
 
