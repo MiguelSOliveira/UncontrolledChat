@@ -32,6 +32,9 @@ This project uses **Python** as the primary language.
 - Use `pytest` fixtures and parametrize where appropriate
 - Aim for meaningful coverage, not just high percentages
 
+### UI Design
+- Any UI in this project should be **heavily inspired by WhatsApp** — layout, color palette, typography, chat bubbles, message input, sidebar/contact list, and overall look and feel
+
 ### General Guidelines
 - Prefer standard library solutions before adding third-party dependencies
 - Raise specific exceptions rather than bare `Exception`
