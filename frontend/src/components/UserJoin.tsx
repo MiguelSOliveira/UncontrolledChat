@@ -21,9 +21,12 @@ export default function UserJoin({ onUserJoined }: UserJoinProps) {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/users?username=' + encodeURIComponent(username), {
-        method: 'POST'
-      })
+      const response = await fetch(
+        `/api/users?username=` + encodeURIComponent(username),
+        {
+          method: 'POST'
+        }
+      )
 
       if (!response.ok) {
         const data = await response.json()

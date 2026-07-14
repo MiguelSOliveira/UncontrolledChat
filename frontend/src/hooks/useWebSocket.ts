@@ -10,11 +10,17 @@ export function useWebSocket(
   onMessage: (msg: any) => void
 ): UseWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null)
+  const onMessageRef = useRef(onMessage)
   const [isConnected, setIsConnected] = useState(false)
+
+  // Keep the latest onMessage without retriggering the effect
+  useEffect(() => {
+    onMessageRef.current = onMessage
+  }, [onMessage])
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const wsUrl = `${protocol}://localhost:8000/ws/${userId}`
+    const wsUrl = `${protocol}://${window.location.host}/ws/${userId}`
 
     const ws = new WebSocket(wsUrl)
 
@@ -26,7 +32,7 @@ export function useWebSocket(
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        onMessage(data)
+        onMessageRef.current(data)
       } catch (err) {
         console.error('Failed to parse message:', err)
       }
@@ -47,7 +53,7 @@ export function useWebSocket(
     return () => {
       ws.close()
     }
-  }, [userId, onMessage])
+  }, [userId])
 
   return {
     ws: wsRef.current,

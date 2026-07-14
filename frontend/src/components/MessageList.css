@@ -10,27 +10,29 @@
 
 .message {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
   margin-bottom: 0.25rem;
-  align-items: flex-end;
 }
 
 .message .username {
   font-weight: 600;
-  color: #111;
+  color: #075e54;
   font-size: 0.75rem;
   margin-bottom: 0.25rem;
+  padding: 0 0.5rem;
 }
 
 .message-bubble {
-  max-width: 60%;
   padding: 0.5rem 0.75rem;
   background: white;
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   word-wrap: break-word;
+  word-break: break-word;
   color: #111;
   font-size: 0.95rem;
+  max-width: 100%;
 }
 
 .system-message {

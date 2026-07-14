@@ -38,7 +38,7 @@ export default function ChatBox({ user, onLogout }: ChatBoxProps) {
     if (!isConnected) return
 
     // Fetch message history
-    fetch('/api/messages')
+    fetch(`/api/messages`)
       .then((res) => res.json())
       .then((data) => setMessages(data))
       .catch(console.error)

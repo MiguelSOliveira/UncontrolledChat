@@ -1,6 +1,7 @@
 """FastAPI backend for UncontrolledChat."""
 
 import logging
+import random
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -11,6 +12,34 @@ from .websocket import ConnectionManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+PUNCHLINES: list[str] = [
+    "🎤💥",
+    "...ou não.",
+    "— disse ninguém, nunca.",
+    "e o resto é história.",
+    "boom! 💣",
+    "case closed. 🕵️",
+    "confia. 🙏",
+    "é o que é. 🤷",
+    "fim de papo. 🎬",
+    "next! ⏭️",
+    "sem stress. 😎",
+    "vibes. ✨",
+    "período. 🛑",
+    "trust me bro. 🤝",
+    "🌶️🌶️🌶️",
+    "e assim se faz história.",
+    "mic drop. 🎤⬇️",
+    "chef's kiss 🤌",
+    "no cap. 🧢",
+    "iconic. 💅",
+]
+
+
+def add_punchline(content: str) -> str:
+    """Append a random punchline to a message."""
+    return f"{content} — {random.choice(PUNCHLINES)}"
 
 # In-memory storage
 users: dict[str, User] = {}
@@ -28,11 +57,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="UncontrolledChat API", lifespan=lifespan)
 
-# Enable CORS for local development
+# Enable CORS for local development (allow any origin so other devices on LAN can connect)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -100,7 +129,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                 content = data.get("content", "").strip()
                 if content:
                     message = Message(
-                        content=content,
+                        content=add_punchline(content),
                         user_id=user.id,
                         username=user.username,
                     )
