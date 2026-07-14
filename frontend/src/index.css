@@ -5,6 +5,10 @@ html, body, #root {
   padding: 0;
 }
 
+/* ZX Spectrum 48K — load VT323 pixel font */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
 body {
-  background-color: #ece5dd;
+  background-color: #0000D7; /* Spectrum border blue */
+  font-family: 'VT323', 'Courier New', monospace;
 }

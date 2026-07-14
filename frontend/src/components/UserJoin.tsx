@@ -58,11 +58,11 @@ export default function UserJoin({ onUserJoined }: UserJoinProps) {
   return (
     <div className="user-join-container">
       <div className="user-join-card">
-        <h2>🔒 Join Encrypted Chat</h2>
+        <h2>* ENCRYPTED CHAT *</h2>
         <p className="hint">
-          Enter your username and a room passphrase. Everyone with the same
-          passphrase can read each other's messages. The server never sees your
-          messages.
+          ENTER USERNAME AND ROOM PASSPHRASE.<br/>
+          SAME PASSPHRASE = SAME KEY SPACE.<br/>
+          SERVER SEES ONLY CIPHERTEXT.
         </p>
         <form onSubmit={handleSubmit}>
           <input
