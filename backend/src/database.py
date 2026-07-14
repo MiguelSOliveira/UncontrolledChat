@@ -3,7 +3,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import DateTime, String, Text, select
+from sqlalchemy import DateTime, String, Text, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -83,6 +83,12 @@ async def save_message(
         created_at=created_at,
     )
     session.add(row)
+    await session.commit()
+
+
+async def clear_messages(session: AsyncSession) -> None:
+    """Delete all messages from the database."""
+    await session.execute(delete(MessageRow))
     await session.commit()
 
 

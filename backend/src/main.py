@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .btc_bot import fetch_and_broadcast_one as btc_fetch_one, run_btc_bot
 from .news_bot import fetch_and_broadcast_one as news_fetch_one, run_news_bot
 from .database import (
+    clear_messages,
     get_all_messages,
     get_participant,
     get_session,
@@ -90,6 +91,15 @@ async def get_messages() -> list[dict]:
 async def get_participants() -> list[dict]:
     """Get all active participants (currently connected via WebSocket)."""
     return []
+
+
+@app.delete("/api/messages")
+async def delete_messages() -> dict:
+    """Clear all persisted messages and notify all clients to wipe their view."""
+    async with await get_session() as session:
+        await clear_messages(session)
+    await manager.broadcast({"type": "clear"})
+    return {"ok": True}
 
 
 @app.post("/api/news")
