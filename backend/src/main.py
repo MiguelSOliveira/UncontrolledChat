@@ -137,15 +137,15 @@ async def websocket_endpoint(websocket: WebSocket, participant_id: str) -> None:
                 if not ciphertext:
                     continue
                 logger.info(
-                    f"Encrypted media from {user_row.username} "
+                    f"Encrypted media from {participant.username} "
                     f"(~{len(ciphertext)} b64 chars)"
                 )
                 await manager.broadcast(
                     {
                         "type": "media",
                         "id": data.get("id"),
-                        "user_id": user_row.id,
-                        "username": user_row.username,
+                        "user_id": participant.id,
+                        "username": participant.username,
                         "ciphertext": ciphertext,
                         "created_at": data.get("created_at"),
                     }
