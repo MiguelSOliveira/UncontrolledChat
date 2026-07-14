@@ -37,6 +37,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     focus: () => textInputRef.current?.focus(),
   }))
 
+  // Focus the text input as soon as it becomes enabled (connection established)
+  useEffect(() => {
+    if (!disabled && !sending) {
+      textInputRef.current?.focus()
+    }
+  }, [disabled, sending])
+
   useEffect(() => {
     if (!pendingFile) {
       setPreviewUrl(null)
@@ -156,7 +163,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           placeholder={pendingFile ? 'add a caption...' : 'type here...'}
           disabled={disabled || sending}
           autoComplete="off"
-          autoFocus
         />
         <button type="submit" disabled={!canSend}>
           {sending ? '...' : 'SEND'}
