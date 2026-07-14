@@ -16,7 +16,7 @@
 
 /* Spectrum border wrapper — animates on message receive */
 .spectrum-border {
-  padding: 48px;
+  padding: 96px;
   background: #0000D7;
   height: 100vh;
   background-size: 100% 16px;

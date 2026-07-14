@@ -23,6 +23,7 @@ interface TextMessageWire {
   user_id: string
   username: string
   created_at: string
+  typewriter?: boolean
 }
 
 interface MediaMessageWire {
@@ -94,10 +95,10 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     onMessageReceived?.()
     if (msg.type === 'message') {
       const decrypted = await decryptTextMessage(msg, roomKey)
-      setMessages((prev) => [...prev, { ...decrypted, fresh: true }])
+      setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
     } else if (msg.type === 'media') {
       const decrypted = await decryptMediaMessage(msg, roomKey)
-      setMessages((prev) => [...prev, { ...decrypted, fresh: true }])
+      setMessages((prev) => [...prev, decrypted])
     } else {
       setMessages((prev) => [...prev, msg])
     }

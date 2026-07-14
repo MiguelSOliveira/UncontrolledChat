@@ -9,7 +9,7 @@ interface TextMessage {
   username: string
   created_at?: string
   kind?: 'text'
-  fresh?: boolean
+  typewriter?: boolean
 }
 
 export interface MediaMessage {
@@ -19,7 +19,6 @@ export interface MediaMessage {
   created_at?: string
   kind: 'media'
   media: (MediaPayload & { objectUrl: string }) | { failed: true }
-  fresh?: boolean
 }
 
 interface SystemMessage {
@@ -38,16 +37,9 @@ function isSystem(msg: ChatMessage): msg is SystemMessage {
   return 'type' in msg && (msg.type === 'user_joined' || msg.type === 'user_left')
 }
 
-// ZX Spectrum bright nick colors (excluding black/white for readability)
 const NICK_COLORS = [
-  '#00FF00', // bright green
-  '#00FFFF', // bright cyan
-  '#FFFF00', // bright yellow
-  '#FF00FF', // bright magenta
-  '#FF0000', // bright red
-  '#0000FF', // bright blue
-  '#00D7D7', // cyan
-  '#D700D7'  // magenta
+  '#00FF00', '#00FFFF', '#FFFF00', '#FF00FF',
+  '#FF0000', '#0000FF', '#00D7D7', '#D700D7',
 ]
 
 function nickColor(username: string): string {
@@ -55,17 +47,44 @@ function nickColor(username: string): string {
   for (let i = 0; i < username.length; i++) {
     hash = (hash * 31 + username.charCodeAt(i)) & 0xffffffff
   }
-
   return NICK_COLORS[Math.abs(hash) % NICK_COLORS.length]
+}
+
+const TYPEWRITER_DURATION_MS = 2000
+
+function TypewriterText({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('')
+  const indexRef = useRef(0)
+
+  useEffect(() => {
+    if (!text) return
+    indexRef.current = 0
+    setDisplayed('')
+    const interval = Math.max(1, TYPEWRITER_DURATION_MS / text.length)
+    const timer = setInterval(() => {
+      indexRef.current += 1
+      setDisplayed(text.slice(0, indexRef.current))
+      if (indexRef.current >= text.length) clearInterval(timer)
+    }, interval)
+    return () => clearInterval(timer)
+  }, [text])
+
+  return (
+    <>
+      {displayed}
+      {displayed.length < text.length && (
+        <span className="block-cursor">█</span>
+      )}
+    </>
+  )
 }
 
 function MediaLine({ msg }: { msg: MediaMessage }) {
   const [lightbox, setLightbox] = useState(false)
-  const className = `message-line message-media${msg.fresh ? ' message--fresh' : ''}`
 
   if ('failed' in msg.media) {
     return (
-      <span className={className}>
+      <span className="message-line">
         <span className="message-nick" style={{ color: nickColor(msg.username) }}>
           &lt;{msg.username.toUpperCase()}&gt;
         </span>{' '}
@@ -77,7 +96,7 @@ function MediaLine({ msg }: { msg: MediaMessage }) {
   const { mime, objectUrl, name, caption } = msg.media
 
   return (
-    <span className={className}>
+    <span className="message-line message-media">
       <span className="message-nick" style={{ color: nickColor(msg.username) }}>
         &lt;{msg.username.toUpperCase()}&gt;
       </span>{' '}
@@ -132,14 +151,15 @@ export default function MessageList({ messages }: MessageListProps) {
         }
 
         return (
-          <span
-            key={msg.id}
-            className={`message-line${msg.fresh ? ' message--fresh' : ''}`}
-          >
+          <span key={msg.id} className="message-line">
             <span className="message-nick" style={{ color: nickColor(msg.username) }}>
               &lt;{msg.username.toUpperCase()}&gt;
             </span>{' '}
-            <span className="message-text">{msg.content}</span>
+            <span className="message-text">
+              {msg.typewriter
+                ? <TypewriterText text={msg.content} />
+                : msg.content}
+            </span>
           </span>
         )
       })}
