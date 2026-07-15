@@ -43,6 +43,8 @@ function App() {
           <h1>UNCONTROLLED CHAT v1.0  (C) 2024</h1>
           <button
             className="sound-toggle-btn"
+            aria-label="Toggle sound"
+            aria-pressed={soundEnabled}
             onClick={() => setSoundEnabled((prev) => !prev)}
           >
             {soundEnabled ? '🔊 SOUND ON' : '🔇 SOUND OFF'}
