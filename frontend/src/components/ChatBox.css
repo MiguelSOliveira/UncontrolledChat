@@ -41,7 +41,7 @@
   color: #FF0000;
   border: 1px solid #FF0000;
   cursor: pointer;
-  font-family: 'VT323', 'Courier New', monospace;
+  font-family: 'Silkscreen', 'Courier New', monospace;
   font-size: 18px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -82,7 +82,7 @@
   pointer-events: none;
   z-index: 10;
   border: 3px dashed #00FFFF;
-  font-family: 'VT323', 'Courier New', monospace;
+  font-family: 'Silkscreen', 'Courier New', monospace;
   text-transform: uppercase;
   letter-spacing: 1px;
 }

@@ -97,7 +97,7 @@ video.media-thumb {
   flex-direction: column;
   gap: 2px;
   padding: 0 2px 2px;
-  font-family: 'VT323', 'Courier New', monospace;
+  font-family: 'Silkscreen', 'Courier New', monospace;
 }
 
 .media-caption-text {
