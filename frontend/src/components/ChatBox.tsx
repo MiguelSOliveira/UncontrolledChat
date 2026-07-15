@@ -39,7 +39,7 @@ interface ChatBoxProps {
   participant: Participant
   roomKey: RoomKey
   onLogout: () => void
-  onMessageReceived?: () => void
+  onMessageReceived?: (charCount: number) => void
 }
 
 const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
@@ -92,13 +92,13 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   const [dragActive, setDragActive] = useState(false)
   const [dropError, setDropError] = useState<string | null>(null)
   const { ws, isConnected } = useWebSocket(participant.id, async (msg) => {
-    onMessageReceived?.()
     if (msg.type === 'clear') {
       setMessages([])
       return
     }
     if (msg.type === 'message') {
       const decrypted = await decryptTextMessage(msg, roomKey)
+      onMessageReceived?.(decrypted.content.length)
       setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
     } else if (msg.type === 'media') {
       const decrypted = await decryptMediaMessage(msg, roomKey)

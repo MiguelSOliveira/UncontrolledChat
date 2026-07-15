@@ -60,7 +60,7 @@ function nickColor(username: string): string {
   return NICK_COLORS[Math.abs(hash) % NICK_COLORS.length]
 }
 
-const TYPEWRITER_DURATION_MS = 2000
+const TYPEWRITER_PER_CHAR_MS = 100
 
 function TypewriterText({ text }: { text: string }) {
   const [displayed, setDisplayed] = useState('')
@@ -70,12 +70,11 @@ function TypewriterText({ text }: { text: string }) {
     if (!text) return
     indexRef.current = 0
     setDisplayed('')
-    const interval = Math.max(1, TYPEWRITER_DURATION_MS / text.length)
     const timer = setInterval(() => {
       indexRef.current += 1
       setDisplayed(text.slice(0, indexRef.current))
       if (indexRef.current >= text.length) clearInterval(timer)
-    }, interval)
+    }, TYPEWRITER_PER_CHAR_MS)
     return () => clearInterval(timer)
   }, [text])
 

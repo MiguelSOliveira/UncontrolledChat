@@ -11,15 +11,14 @@ interface Participant {
 
 const audio = new Audio('/spectrum-load.mp3')
 
-function playLoadSound() {
-  // Pick a random start point, leaving 2s before the end
+function playLoadSound(durationMs: number) {
+  const playSeconds = durationMs / 1000
+  // Pick a random start point while leaving enough room for the requested duration.
   const duration = audio.duration || 30  // fallback until metadata loads
-  const maxStart = Math.max(0, duration - 2)
+  const maxStart = Math.max(0, duration - playSeconds)
   audio.currentTime = Math.random() * maxStart
+  audio.loop = true
   audio.play().catch(() => {/* autoplay blocked until first user interaction */})
-  setTimeout(() => {
-    audio.pause()
-  }, 2000)
 }
 
 function App() {
@@ -28,12 +27,23 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const soundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleMessageReceived = useCallback(() => {
-    if (soundEnabled) playLoadSound()
+  const handleMessageReceived = useCallback((charCount: number) => {
+    const durationMs = Math.max(1, charCount) * 100
     setLoading(true)
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setLoading(false), 2000)
+    timerRef.current = setTimeout(() => setLoading(false), durationMs)
+
+    if (!soundEnabled) return
+    audio.pause()
+    audio.loop = false
+    if (soundTimerRef.current) clearTimeout(soundTimerRef.current)
+    playLoadSound(durationMs)
+    soundTimerRef.current = setTimeout(() => {
+      audio.pause()
+      audio.loop = false
+    }, durationMs)
   }, [soundEnabled])
 
   return (
