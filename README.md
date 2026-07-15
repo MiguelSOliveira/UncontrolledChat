@@ -37,6 +37,16 @@ The backend will start on `http://localhost:8000`
 - WebSocket: `ws://localhost:8000`
 - API docs: `http://localhost:8000/docs`
 
+**Optional - Start MCP persona server (for agents):**
+
+```bash
+cd backend
+pip install -e .
+uncontrolledchat-mcp-persona
+```
+
+The MCP server exposes tools to list personas and create encrypted personas in a Key Space from a passphrase.
+
 **Terminal 2 - Start Frontend:**
 
 ```bash

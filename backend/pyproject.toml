@@ -16,6 +16,7 @@ dependencies = [
     "aiosqlite>=0.19.0",
     "cryptography>=42.0.0",
     "github-copilot-sdk>=1.0.6",
+    "mcp>=1.10.1",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,9 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[project.scripts]
+uncontrolledchat-mcp-persona = "src.mcp_persona_server:main"
 
 [tool.ruff]
 line-length = 100

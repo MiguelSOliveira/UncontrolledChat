@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { RoomKey } from '../crypto/roomKey'
 import MessageList, { ChatMessage, MediaMessage } from './MessageList'
-import ChatInput from './ChatInput'
+import ChatInput, { ChatInputHandle } from './ChatInput'
 import {
   MAX_MEDIA_BYTES,
   decryptMedia,
@@ -57,7 +57,8 @@ type PersonaRegistryEvent =
 
 const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
 const PERSONA_USER_ID_PREFIX = 'persona:'
-const CHARS_FOR_5_SECONDS = 50
+const CHARS_FOR_5_SECONDS = 500
+const PERSONA_SINGLE_CLICK_DELAY_MS = 220
 
 function parsePersonaMessage(plaintext: string): { name: string; content: string } {
   const value: unknown = JSON.parse(plaintext)
@@ -154,10 +155,14 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [dropError, setDropError] = useState<string | null>(null)
+  const [destroyingPersonaIds, setDestroyingPersonaIds] = useState<Set<string>>(new Set())
   const personasRef = useRef<Persona[]>([])
+  const chatInputRef = useRef<ChatInputHandle>(null)
+  const personaClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const personaLoadingRef = useRef(true)
   const personaEventsRef = useRef<PersonaRegistryEvent[]>([])
   const destroyedPersonaIdsRef = useRef(new Set<string>())
+  const handledMentionMessageIdsRef = useRef(new Set<string>())
 
   const injectLocal = (text: string) =>
     setMessages((prev) => [
@@ -188,7 +193,15 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     }
     if (msg.type === 'message') {
       const decrypted = await decryptTextMessage(msg, roomKey)
-      setMessages((prev) => [...prev, decrypted])
+      onMessageReceived?.(decrypted.content.length)
+      setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
+      if (decrypted.user_id === participant.id) return
+      await respondToMentions(
+        decrypted.id,
+        decrypted.content,
+        decrypted.username,
+        decrypted.user_id
+      )
     } else if (msg.type === 'media') {
       const decrypted = await decryptMediaMessage(msg, roomKey)
       if (!('failed' in decrypted.media) && decrypted.media.mime.startsWith('image/')) {
@@ -244,6 +257,14 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
       })
       .catch(console.error)
   }, [isConnected, roomKey])
+
+  useEffect(() => {
+    return () => {
+      if (personaClickTimerRef.current) {
+        clearTimeout(personaClickTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!isConnected) return
@@ -370,16 +391,28 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     { cmd: '/?',      desc: 'Show this help' },
   ]
 
-  const respondToMentions = async (content: string) => {
-    const mentionedPersonas = findMentionedPersonas(content, personasRef.current)
+  const respondToMentions = async (
+    messageId: string,
+    content: string,
+    speakerUsername: string,
+    speakerUserId: string
+  ) => {
+    if (handledMentionMessageIdsRef.current.has(messageId)) return
+    handledMentionMessageIdsRef.current.add(messageId)
+
+    const speakerNameLower = speakerUsername.toLocaleLowerCase()
+    const mentionedPersonas = findMentionedPersonas(content, personasRef.current).filter(
+      (persona) => persona.name.toLocaleLowerCase() !== speakerNameLower
+    )
     if (!mentionedPersonas.length) return
 
     const context = buildPersonaContext(messages, {
-      username: participant.username,
+      username: speakerUsername,
       content
     })
     await Promise.all(
       mentionedPersonas.map(async (persona) => {
+        if (speakerUserId === `${PERSONA_USER_ID_PREFIX}${persona.id}`) return
         injectLocal(`@${persona.name} is thinking...`)
         try {
           const response = await requestPersonaReply(
@@ -413,18 +446,44 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     )
   }
 
+  const resetChatRoom = async () => {
+    const personasToDestroy = [...personasRef.current]
+    const destroyResults = await Promise.allSettled(
+      personasToDestroy.map(async (persona) => destroyPersona(persona, roomKey))
+    )
+    const destroyFailures = destroyResults.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    )
+    if (destroyFailures.length) {
+      injectLocal(`Failed to destroy ${destroyFailures.length} persona(s) during reset`)
+    }
+
+    const clearResponse = await fetch('/api/messages', { method: 'DELETE' }).catch((error) => {
+      injectLocal(`Room reset failed: ${errorMessage(error)}`)
+      return null
+    })
+    if (!clearResponse) return
+    if (!clearResponse.ok) {
+      injectLocal('Room reset failed: could not clear messages')
+      return
+    }
+
+    setDropError(null)
+    setPendingFile(null)
+    setMessages([
+      {
+        id: randomId(),
+        type: 'system',
+        text: 'UNCONTROLLED CHAT v1.0 (C) 2024',
+      },
+    ])
+  }
+
   const handleSendMessage = async (content: string) => {
     const cmd = content.trim()
 
     if (cmd.toUpperCase() === 'CLEAR') {
-      setDropError(null)
-      setMessages([
-        {
-          id: randomId(),
-          type: 'system',
-          text: 'UNCONTROLLED CHAT v1.0 (C) 2024',
-        },
-      ])
+      await resetChatRoom()
       return
     }
 
@@ -490,7 +549,7 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     }
 
     if (cmd === '/clear') {
-      await fetch('/api/messages', { method: 'DELETE' }).catch(console.error)
+      await resetChatRoom()
       return
     }
 
@@ -512,7 +571,12 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     const ciphertext = await roomKey.encrypt(content)
     ws.send(JSON.stringify({ type: 'message', content: ciphertext }))
-    await respondToMentions(content)
+    await respondToMentions(
+      `local:${randomId()}`,
+      content,
+      participant.username,
+      participant.id
+    )
   }
 
   const handleSendMedia = async (file: File, caption: string) => {
@@ -528,6 +592,40 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
         created_at: new Date().toISOString()
       })
     )
+  }
+
+  const handleDestroyPersonaClick = async (persona: Persona) => {
+    if (destroyingPersonaIds.has(persona.id)) return
+    setDestroyingPersonaIds((prev) => new Set(prev).add(persona.id))
+    try {
+      await destroyPersona(persona, roomKey)
+    } catch (error) {
+      injectLocal(`Persona destruction failed: ${errorMessage(error)}`)
+    } finally {
+      setDestroyingPersonaIds((prev) => {
+        const next = new Set(prev)
+        next.delete(persona.id)
+        return next
+      })
+    }
+  }
+
+  const handlePersonaSingleClick = (persona: Persona) => {
+    if (personaClickTimerRef.current) {
+      clearTimeout(personaClickTimerRef.current)
+    }
+    personaClickTimerRef.current = setTimeout(() => {
+      chatInputRef.current?.appendText(`@${persona.name}`)
+      personaClickTimerRef.current = null
+    }, PERSONA_SINGLE_CLICK_DELAY_MS)
+  }
+
+  const handlePersonaDoubleClick = (persona: Persona) => {
+    if (personaClickTimerRef.current) {
+      clearTimeout(personaClickTimerRef.current)
+      personaClickTimerRef.current = null
+    }
+    void handleDestroyPersonaClick(persona)
   }
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -563,9 +661,14 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     setPendingFile(file)
   }
 
+  const handlePageClickFocusInput = () => {
+    chatInputRef.current?.focus()
+  }
+
   return (
     <div
       className="chat-box"
+      onClickCapture={handlePageClickFocusInput}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -580,7 +683,21 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
             PERSONAS:{' '}
             <strong>
               {personas.length
-                ? personas.map((persona) => `@${persona.name}`).join(', ')
+                ? personas.map((persona, index) => (
+                  <span key={persona.id}>
+                    <button
+                      type="button"
+                      className="persona-chip-btn"
+                      disabled={destroyingPersonaIds.has(persona.id)}
+                      onClick={() => handlePersonaSingleClick(persona)}
+                      onDoubleClick={() => handlePersonaDoubleClick(persona)}
+                      title={`Click: insert @${persona.name} • Double-click: destroy`}
+                    >
+                      @{persona.name}
+                    </button>
+                    {index < personas.length - 1 ? ', ' : ''}
+                  </span>
+                ))
                 : 'NONE'}
             </strong>
           </p>
@@ -591,6 +708,7 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
       </div>
       <MessageList messages={messages} />
       <ChatInput
+        ref={chatInputRef}
         onSendMessage={handleSendMessage}
         onSendMedia={handleSendMedia}
         disabled={!isConnected}

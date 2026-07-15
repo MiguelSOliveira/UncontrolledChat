@@ -17,6 +17,7 @@ interface ChatInputProps {
 
 export interface ChatInputHandle {
   focus: () => void
+  appendText: (text: string) => void
 }
 
 const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput({
@@ -35,6 +36,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
 
   useImperativeHandle(ref, () => ({
     focus: () => textInputRef.current?.focus(),
+    appendText: (text: string) => {
+      setMessage((prev) => {
+        const spacer = prev && !prev.endsWith(' ') ? ' ' : ''
+        return `${prev}${spacer}${text}`
+      })
+      textInputRef.current?.focus()
+    },
   }))
 
   // Focus the text input as soon as it becomes enabled (connection established)

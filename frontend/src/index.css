@@ -1,12 +1,12 @@
+/* 8x8-style bitmap monospace font */
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
+
 html, body, #root {
   width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
 }
-
-/* 8x8-style bitmap monospace font */
-@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
 
 body {
   background-color: #0000D7; /* Spectrum border blue */

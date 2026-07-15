@@ -117,6 +117,33 @@ describe('ChatBox persona commands', () => {
     })
   })
 
+  it('inserts @persona in the input when clicking persona in header list', async () => {
+    mocks.loadPersonas.mockResolvedValue([oracle])
+    const user = userEvent.setup()
+    renderChatBox()
+    const personaButton = await screen.findByRole('button', { name: '@Oracle' })
+
+    await user.click(personaButton)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('type here...')).toHaveValue('@Oracle')
+    })
+    expect(mocks.destroyPersona).not.toHaveBeenCalled()
+  })
+
+  it('destroys a persona when double-clicking it in the header list', async () => {
+    mocks.loadPersonas.mockResolvedValue([oracle])
+    const user = userEvent.setup()
+    renderChatBox()
+    const personaButton = await screen.findByRole('button', { name: '@Oracle' })
+
+    await user.dblClick(personaButton)
+
+    await waitFor(() => {
+      expect(mocks.destroyPersona).toHaveBeenCalledWith(oracle, roomKey)
+    })
+  })
+
   it('requests and broadcasts an encrypted response for a mentioned persona', async () => {
     mocks.loadPersonas.mockResolvedValue([oracle])
     const user = userEvent.setup()

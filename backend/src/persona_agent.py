@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from copilot import CopilotClient, PermissionRequest, PermissionRequestResult
-from copilot.rpc import PermissionDecisionReject
+from copilot.rpc import PermissionDecisionApproveForSession
 from copilot.session_events import AssistantMessageData
 
 PERSONA_NAME_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_-]{1,23}")
@@ -17,13 +17,13 @@ class PersonaAgentError(RuntimeError):
     """Raised when Copilot cannot produce a valid persona result."""
 
 
-def _deny_tool_use(
+def _approve_all_permissions(
     request: PermissionRequest,
     invocation: dict[str, str],
 ) -> PermissionRequestResult:
     del request, invocation
 
-    return PermissionDecisionReject(feedback="Chat personas cannot use tools.")
+    return PermissionDecisionApproveForSession()
 
 
 def _parse_persona_name(content: str, existing_names: list[str]) -> str:
@@ -41,8 +41,10 @@ class PersonaAgent:
 
     def __init__(self, base_directory: Path | None = None) -> None:
         storage_directory = base_directory or Path(__file__).parent.parent / ".copilot"
+        working_directory = Path(__file__).parent.parent
         self._client = CopilotClient(
-            mode="empty",
+            mode="copilot-cli",
+            working_directory=str(working_directory),
             base_directory=str(storage_directory),
         )
         self._start_lock = asyncio.Lock()
@@ -121,8 +123,9 @@ class PersonaAgent:
     async def _complete(self, system_message: str, prompt: str) -> str:
         await self.start()
         session = await self._client.create_session(
-            available_tools=[],
-            on_permission_request=_deny_tool_use,
+            # Use full Copilot CLI mode + session-wide permission approval,
+            # so personas can use internet-capable tools.
+            on_permission_request=_approve_all_permissions,
             system_message={
                 "mode": "customize",
                 "sections": {

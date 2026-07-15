@@ -30,7 +30,7 @@ function App() {
   const soundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMessageReceived = useCallback((charCount: number) => {
-    const durationMs = Math.max(1, charCount) * 100
+    const durationMs = Math.max(1, charCount) * 10
     setLoading(true)
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => setLoading(false), durationMs)

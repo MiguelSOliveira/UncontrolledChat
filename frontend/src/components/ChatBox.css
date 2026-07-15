@@ -35,6 +35,28 @@
   color: #FFFF00;
 }
 
+.persona-chip-btn {
+  appearance: none;
+  border: 1px solid #FFFF00;
+  background: transparent;
+  color: #FFFF00;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.persona-chip-btn:hover:not(:disabled) {
+  background: #FFFF00;
+  color: #000000;
+}
+
+.persona-chip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .logout-btn {
   padding: 0 8px;
   background: #000000;
