@@ -26,20 +26,29 @@ function App() {
   const [participant, setParticipant] = useState<Participant | null>(null)
   const [roomKey, setRoomKey] = useState<RoomKey | null>(null)
   const [loading, setLoading] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMessageReceived = useCallback(() => {
-    playLoadSound()
+    if (soundEnabled) playLoadSound()
     setLoading(true)
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => setLoading(false), 2000)
-  }, [])
+  }, [soundEnabled])
 
   return (
     <div className={`spectrum-border${loading ? ' loading' : ''}`}>
       <div className="app">
         <header>
           <h1>UNCONTROLLED CHAT v1.0  (C) 2024</h1>
+          <button
+            className="sound-toggle-btn"
+            aria-label="Toggle sound"
+            aria-pressed={soundEnabled}
+            onClick={() => setSoundEnabled((prev) => !prev)}
+          >
+            {soundEnabled ? '🔊 SOUND ON' : '🔇 SOUND OFF'}
+          </button>
         </header>
         <main>
           {!participant || !roomKey ? (
