@@ -67,6 +67,26 @@
   border: 1px solid #00D7D7;
 }
 
+.media-thumb-reveal-wrap {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.media-thumb-reveal {
+  position: relative;
+  z-index: 1;
+}
+
+.media-thumb-reveal-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 video.media-thumb {
   cursor: default;
   width: 300px;

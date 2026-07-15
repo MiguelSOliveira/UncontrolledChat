@@ -43,6 +43,7 @@ interface ChatBoxProps {
 }
 
 const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
+const CHARS_FOR_5_SECONDS = 50
 
 async function decryptTextMessage(
   msg: TextMessageWire,
@@ -102,6 +103,9 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
       setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
     } else if (msg.type === 'media') {
       const decrypted = await decryptMediaMessage(msg, roomKey)
+      if (!('failed' in decrypted.media) && decrypted.media.mime.startsWith('image/')) {
+        onMessageReceived?.(CHARS_FOR_5_SECONDS)
+      }
       setMessages((prev) => [...prev, decrypted])
     } else {
       setMessages((prev) => [...prev, msg])
@@ -192,6 +196,7 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
   ]
 
   const COMMANDS = [
+    { cmd: 'CLEAR', desc: 'Reset the screen and print ZX startup line' },
     { cmd: '/news',   desc: 'Fetch the latest BBC headline now' },
     { cmd: '/crypto', desc: 'Fetch the latest BTC price now' },
     { cmd: '/p0rn',   desc: 'Post a surprise ASCII art in the room' },
@@ -207,6 +212,18 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
 
   const handleSendMessage = async (content: string) => {
     const cmd = content.trim()
+
+    if (cmd.toUpperCase() === 'CLEAR') {
+      setDropError(null)
+      setMessages([
+        {
+          id: randomId(),
+          type: 'system',
+          text: 'UNCONTROLLED CHAT v1.0 (C) 2024',
+        },
+      ])
+      return
+    }
 
     if (cmd === '/?') {
       const lines = ['Available commands:', ...COMMANDS.map((c) => `  ${c.cmd.padEnd(10)} — ${c.desc}`)]
@@ -305,7 +322,6 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     >
       <div className="chat-header">
         <div>
-          <h2>#UNCONTROLLEDCHAT 🔒</h2>
           <p className="user-info">
             NICK: <strong>{participant.username.toUpperCase()}</strong>
           </p>
