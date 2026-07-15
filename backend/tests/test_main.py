@@ -9,7 +9,16 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import main
-from src.database import get_all_messages, save_message, save_participant
+from src.database import (
+    get_all_messages,
+    get_personas,
+    save_message,
+    save_participant,
+    save_persona,
+)
+
+KEY_SPACE_ID = "a" * 64
+NAME_TOKEN = "b" * 64
 
 
 class FakeWebSocket:
@@ -122,6 +131,89 @@ async def test_trigger_crypto_calls_single_btc_fetch(client: AsyncClient, monkey
 
 
 @pytest.mark.asyncio
+async def test_persona_lifecycle_is_persisted_and_broadcast(
+    db_session: AsyncSession,
+    client: AsyncClient,
+) -> None:
+    """Creating and destroying a persona should synchronize its Key Space."""
+    broadcast_spy = AsyncMock()
+    main.manager.broadcast = broadcast_spy
+
+    created = await client.post(
+        "/api/personas",
+        json={
+            "key_space_id": KEY_SPACE_ID,
+            "name_token": NAME_TOKEN,
+            "ciphertext": "encrypted-persona",
+        },
+    )
+
+    assert created.status_code == 200
+    persona_id = created.json()["id"]
+    listed = await client.get("/api/personas", params={"key_space_id": KEY_SPACE_ID})
+    assert [persona["id"] for persona in listed.json()] == [persona_id]
+    assert broadcast_spy.await_args_list[0].args[0]["type"] == "persona_created"
+
+    destroyed = await client.delete(
+        f"/api/personas/{persona_id}",
+        params={"key_space_id": KEY_SPACE_ID},
+    )
+
+    assert destroyed.json() == {"ok": True}
+    assert await get_personas(db_session, KEY_SPACE_ID) == []
+    assert broadcast_spy.await_args_list[1].args[0] == {
+        "type": "persona_destroyed",
+        "id": persona_id,
+    }
+
+
+@pytest.mark.asyncio
+async def test_generate_and_respond_use_copilot_persona_agent(
+    db_session: AsyncSession,
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Persona API should delegate naming and replies to the isolated agent."""
+    generate_name = AsyncMock(return_value="Oracle")
+    respond = AsyncMock(return_value="The answer is 42.")
+    monkeypatch.setattr(main.persona_agent, "generate_name", generate_name)
+    monkeypatch.setattr(main.persona_agent, "respond", respond)
+    await save_persona(
+        db_session,
+        "persona-1",
+        KEY_SPACE_ID,
+        NAME_TOKEN,
+        "encrypted-persona",
+        datetime.now(timezone.utc),
+    )
+    generated = await client.post(
+        "/api/personas/generate",
+        json={
+            "description": "A mysterious oracle",
+            "existing_names": ["Sage"],
+        },
+    )
+    response = await client.post(
+        "/api/personas/persona-1/respond",
+        json={
+            "key_space_id": KEY_SPACE_ID,
+            "name": "Oracle",
+            "description": "A mysterious oracle",
+            "mention": "@Oracle what is the answer?",
+            "context": [{"username": "alice", "content": "We need an answer."}],
+        },
+    )
+
+    assert generated.json() == {"name": "Oracle"}
+    assert response.json() == {"content": "The answer is 42."}
+    generate_name.assert_awaited_once_with(
+        "A mysterious oracle",
+        ["Sage"],
+    )
+    respond.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_websocket_endpoint_closes_unknown_participant() -> None:
     """Unknown participant should be rejected with policy-violation close code."""
     websocket = FakeWebSocket()
@@ -178,3 +270,37 @@ async def test_websocket_endpoint_relays_media_without_persisting(
 
     rows = await get_all_messages(db_session)
     assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_websocket_endpoint_persists_existing_persona_response(
+    db_session: AsyncSession,
+) -> None:
+    """Persona responses should be persisted and relayed as encrypted messages."""
+    await save_participant(db_session, "p3", "alice", datetime.now(timezone.utc))
+    await save_persona(
+        db_session,
+        "persona-1",
+        KEY_SPACE_ID,
+        NAME_TOKEN,
+        "encrypted-persona",
+        datetime.now(timezone.utc),
+    )
+    websocket = FakeWebSocket(
+        incoming=[
+            {
+                "type": "persona_message",
+                "persona_id": "persona-1",
+                "key_space_id": KEY_SPACE_ID,
+                "content": "encrypted-response",
+            }
+        ]
+    )
+
+    await main.websocket_endpoint(websocket, "p3")
+
+    rows = await get_all_messages(db_session)
+    assert len(rows) == 1
+    assert rows[0].user_id == f"{main.PERSONA_USER_ID_PREFIX}persona-1"
+    assert rows[0].username == main.PERSONA_WIRE_USERNAME
+    assert rows[0].content == "encrypted-response"

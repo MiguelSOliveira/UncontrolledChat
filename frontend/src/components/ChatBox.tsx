@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { RoomKey } from '../crypto/roomKey'
 import MessageList, { ChatMessage, MediaMessage } from './MessageList'
@@ -10,6 +10,16 @@ import {
   formatBytes,
   isAcceptedFile
 } from '../media/media'
+import {
+  Persona,
+  PersonaContextMessage,
+  decryptPersona,
+  destroyPersona,
+  findMentionedPersonas,
+  invokePersona,
+  loadPersonas,
+  requestPersonaReply
+} from '../personas/personas'
 import './ChatBox.css'
 
 interface Participant {
@@ -23,7 +33,6 @@ interface TextMessageWire {
   user_id: string
   username: string
   created_at: string
-  typewriter?: boolean
 }
 
 interface MediaMessageWire {
@@ -42,15 +51,48 @@ interface ChatBoxProps {
   onMessageReceived?: (charCount: number) => void
 }
 
+type PersonaRegistryEvent =
+  | { type: 'created'; persona: Persona }
+  | { type: 'destroyed'; personaId: string; announced: boolean }
+
 const DECRYPT_FAILED = '🔒 (unreadable — different passphrase)'
+const PERSONA_USER_ID_PREFIX = 'persona:'
 const CHARS_FOR_5_SECONDS = 50
+
+function parsePersonaMessage(plaintext: string): { name: string; content: string } {
+  const value: unknown = JSON.parse(plaintext)
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('kind' in value) ||
+    value.kind !== 'persona' ||
+    !('name' in value) ||
+    typeof value.name !== 'string' ||
+    !('content' in value) ||
+    typeof value.content !== 'string'
+  ) {
+    throw new Error('Invalid encrypted Persona response')
+  }
+  return { name: value.name, content: value.content }
+}
 
 async function decryptTextMessage(
   msg: TextMessageWire,
   roomKey: RoomKey
-): Promise<ChatMessage> {
+): Promise<TextMessageWire & { kind: 'text' }> {
   try {
     const plaintext = await roomKey.decrypt(msg.content)
+    if (msg.user_id.startsWith(PERSONA_USER_ID_PREFIX)) {
+      const personaMessage = parsePersonaMessage(plaintext)
+
+      return {
+        ...msg,
+        username: personaMessage.name,
+        content: personaMessage.content,
+        kind: 'text'
+      }
+    }
+
     return { ...msg, content: plaintext, kind: 'text' }
   } catch {
     return { ...msg, content: DECRYPT_FAILED, kind: 'text' }
@@ -87,11 +129,58 @@ function randomId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
 }
 
+function buildPersonaContext(
+  messages: ChatMessage[],
+  currentMessage: PersonaContextMessage
+): PersonaContextMessage[] {
+  const readableMessages = messages.flatMap((message) => {
+    if ('content' in message && message.content !== DECRYPT_FAILED) {
+      return [{ username: message.username, content: message.content }]
+    }
+
+    return []
+  })
+
+  return [...readableMessages, currentMessage].slice(-20)
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unexpected persona error'
+}
+
 export default function ChatBox({ participant, roomKey, onLogout, onMessageReceived }: ChatBoxProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [personas, setPersonas] = useState<Persona[]>([])
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [dropError, setDropError] = useState<string | null>(null)
+  const personasRef = useRef<Persona[]>([])
+  const personaLoadingRef = useRef(true)
+  const personaEventsRef = useRef<PersonaRegistryEvent[]>([])
+  const destroyedPersonaIdsRef = useRef(new Set<string>())
+
+  const injectLocal = (text: string) =>
+    setMessages((prev) => [
+      ...prev,
+      { id: randomId(), type: 'system' as const, text },
+    ])
+
+  const replacePersonas = (nextPersonas: Persona[]) => {
+    personasRef.current = nextPersonas
+    setPersonas(nextPersonas)
+  }
+
+  const addPersona = (persona: Persona) => {
+    replacePersonas([
+      ...personasRef.current.filter((current) => current.id !== persona.id),
+      persona
+    ])
+  }
+
+  const removePersona = (personaId: string) => {
+    replacePersonas(personasRef.current.filter((persona) => persona.id !== personaId))
+  }
+
   const { ws, isConnected } = useWebSocket(participant.id, async (msg) => {
     if (msg.type === 'clear') {
       setMessages([])
@@ -99,14 +188,44 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     }
     if (msg.type === 'message') {
       const decrypted = await decryptTextMessage(msg, roomKey)
-      onMessageReceived?.(decrypted.content.length)
-      setMessages((prev) => [...prev, { ...decrypted, typewriter: true }])
+      setMessages((prev) => [...prev, decrypted])
     } else if (msg.type === 'media') {
       const decrypted = await decryptMediaMessage(msg, roomKey)
       if (!('failed' in decrypted.media) && decrypted.media.mime.startsWith('image/')) {
         onMessageReceived?.(CHARS_FOR_5_SECONDS)
       }
       setMessages((prev) => [...prev, decrypted])
+    } else if (msg.type === 'persona_created') {
+      if (destroyedPersonaIdsRef.current.has(msg.id)) return
+
+      try {
+        const persona = await decryptPersona(msg, roomKey)
+        if (destroyedPersonaIdsRef.current.has(persona.id)) return
+
+        if (personaLoadingRef.current) {
+          personaEventsRef.current.push({ type: 'created', persona })
+        }
+        addPersona(persona)
+        injectLocal(
+          `*** @${persona.name.toUpperCase()} HAS ENTERED THE CHANNEL — ${persona.description}`
+        )
+      } catch {
+        return
+      }
+    } else if (msg.type === 'persona_destroyed') {
+      destroyedPersonaIdsRef.current.add(msg.id)
+      const persona = personasRef.current.find((current) => current.id === msg.id)
+      if (personaLoadingRef.current) {
+        personaEventsRef.current.push({
+          type: 'destroyed',
+          personaId: msg.id,
+          announced: Boolean(persona)
+        })
+      }
+      if (persona) {
+        removePersona(persona.id)
+        injectLocal(`*** @${persona.name.toUpperCase()} HAS BEEN DESTROYED`)
+      }
     } else {
       setMessages((prev) => [...prev, msg])
     }
@@ -124,6 +243,51 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
         setMessages(decrypted)
       })
       .catch(console.error)
+  }, [isConnected, roomKey])
+
+  useEffect(() => {
+    if (!isConnected) return
+
+    personaLoadingRef.current = true
+    personaEventsRef.current = []
+    loadPersonas(roomKey)
+      .then((loadedPersonas) => {
+        let reconciledPersonas = loadedPersonas.filter(
+          (persona) => !destroyedPersonaIdsRef.current.has(persona.id)
+        )
+        personaEventsRef.current.forEach((event) => {
+          if (event.type === 'created') {
+            reconciledPersonas = [
+              ...reconciledPersonas.filter(
+                (persona) => persona.id !== event.persona.id
+              ),
+              event.persona
+            ]
+            return
+          }
+
+          const destroyedPersona = reconciledPersonas.find(
+            (persona) => persona.id === event.personaId
+          )
+          if (destroyedPersona && !event.announced) {
+            injectLocal(
+              `*** @${destroyedPersona.name.toUpperCase()} HAS BEEN DESTROYED`
+            )
+          }
+          reconciledPersonas = reconciledPersonas.filter(
+            (persona) => persona.id !== event.personaId
+          )
+        })
+        personaLoadingRef.current = false
+        personaEventsRef.current = []
+        replacePersonas(reconciledPersonas)
+      })
+      .catch((error: unknown) => {
+        personaLoadingRef.current = false
+        personaEventsRef.current = []
+        console.error('Failed to load personas:', error)
+        injectLocal(`Persona registry unavailable: ${errorMessage(error)}`)
+      })
   }, [isConnected, roomKey])
 
   const ASCII_WOMEN = [
@@ -199,16 +363,55 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     { cmd: 'CLEAR', desc: 'Reset the screen and print ZX startup line' },
     { cmd: '/news',   desc: 'Fetch the latest BBC headline now' },
     { cmd: '/crypto', desc: 'Fetch the latest BTC price now' },
+    { cmd: '/invoke', desc: 'Create a persona from a description' },
+    { cmd: '/destroy', desc: 'Destroy a persona by name' },
     { cmd: '/p0rn',   desc: 'Post a surprise ASCII art in the room' },
     { cmd: '/clear',  desc: 'Remove all messages from the room' },
     { cmd: '/?',      desc: 'Show this help' },
   ]
 
-  const injectLocal = (text: string) =>
-    setMessages((prev) => [
-      ...prev,
-      { id: randomId(), type: 'system' as const, text },
-    ])
+  const respondToMentions = async (content: string) => {
+    const mentionedPersonas = findMentionedPersonas(content, personasRef.current)
+    if (!mentionedPersonas.length) return
+
+    const context = buildPersonaContext(messages, {
+      username: participant.username,
+      content
+    })
+    await Promise.all(
+      mentionedPersonas.map(async (persona) => {
+        injectLocal(`@${persona.name} is thinking...`)
+        try {
+          const response = await requestPersonaReply(
+            persona,
+            content,
+            context,
+            roomKey
+          )
+          const ciphertext = await roomKey.encrypt(
+            JSON.stringify({
+              kind: 'persona',
+              name: persona.name,
+              content: response
+            })
+          )
+          if (!ws || ws.readyState !== WebSocket.OPEN) {
+            throw new Error('Disconnected before the persona could respond')
+          }
+          ws.send(
+            JSON.stringify({
+              type: 'persona_message',
+              persona_id: persona.id,
+              key_space_id: roomKey.keySpaceId,
+              content: ciphertext
+            })
+          )
+        } catch (error) {
+          injectLocal(`@${persona.name} could not respond: ${errorMessage(error)}`)
+        }
+      })
+    )
+  }
 
   const handleSendMessage = async (content: string) => {
     const cmd = content.trim()
@@ -228,6 +431,53 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     if (cmd === '/?') {
       const lines = ['Available commands:', ...COMMANDS.map((c) => `  ${c.cmd.padEnd(10)} — ${c.desc}`)]
       injectLocal(lines.join('\n'))
+      return
+    }
+
+    if (cmd === '/invoke' || cmd.startsWith('/invoke ')) {
+      const description = cmd.slice('/invoke'.length).trim()
+      if (!description) {
+        injectLocal('Usage: /invoke <persona description>')
+        return
+      }
+
+      injectLocal('Invoking a new persona with Copilot...')
+      try {
+        await invokePersona(
+          description,
+          participant.username,
+          personasRef.current.map((persona) => persona.name),
+          roomKey
+        )
+      } catch (error) {
+        injectLocal(`Persona invocation failed: ${errorMessage(error)}`)
+      }
+      return
+    }
+
+    if (cmd === '/destroy' || cmd.startsWith('/destroy ')) {
+      const requestedName = cmd
+        .slice('/destroy'.length)
+        .trim()
+        .replace(/^@/, '')
+      if (!requestedName) {
+        injectLocal('Usage: /destroy <personaName>')
+        return
+      }
+
+      const persona = personasRef.current.find(
+        (current) => current.name.toLocaleLowerCase() === requestedName.toLocaleLowerCase()
+      )
+      if (!persona) {
+        injectLocal(`Persona not found: @${requestedName}`)
+        return
+      }
+
+      try {
+        await destroyPersona(persona, roomKey)
+      } catch (error) {
+        injectLocal(`Persona destruction failed: ${errorMessage(error)}`)
+      }
       return
     }
 
@@ -262,6 +512,7 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     const ciphertext = await roomKey.encrypt(content)
     ws.send(JSON.stringify({ type: 'message', content: ciphertext }))
+    await respondToMentions(content)
   }
 
   const handleSendMedia = async (file: File, caption: string) => {
@@ -324,6 +575,14 @@ export default function ChatBox({ participant, roomKey, onLogout, onMessageRecei
         <div>
           <p className="user-info">
             NICK: <strong>{participant.username.toUpperCase()}</strong>
+          </p>
+          <p className="user-info">
+            PERSONAS:{' '}
+            <strong>
+              {personas.length
+                ? personas.map((persona) => `@${persona.name}`).join(', ')
+                : 'NONE'}
+            </strong>
           </p>
         </div>
         <button className="logout-btn" onClick={onLogout}>

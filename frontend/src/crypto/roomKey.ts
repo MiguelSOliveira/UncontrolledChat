@@ -12,6 +12,7 @@ const APP_SALT = new TextEncoder().encode('uncontrolled-chat-v1')
 const PBKDF2_ITERATIONS = 200_000
 const AES_KEY_LEN = 256
 const IV_LEN = 12
+const KEY_SPACE_LABEL = new TextEncoder().encode('uncontrolled-chat-key-space-v1')
 
 function ensureCryptoSubtle(): SubtleCrypto {
   if (!crypto?.subtle) {
@@ -23,16 +24,26 @@ function ensureCryptoSubtle(): SubtleCrypto {
   return crypto.subtle
 }
 
-async function deriveKey(passphrase: string): Promise<CryptoKey> {
+interface DerivedKeys {
+  encryptionKey: CryptoKey
+  identityKey: CryptoKey
+  keySpaceId: string
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function deriveKeys(passphrase: string): Promise<DerivedKeys> {
   const subtle = ensureCryptoSubtle()
   const material = await subtle.importKey(
     'raw',
     new TextEncoder().encode(passphrase),
     'PBKDF2',
     false,
-    ['deriveKey']
+    ['deriveBits']
   )
-  return subtle.deriveKey(
+  const keyBytes = await subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: APP_SALT,
@@ -40,10 +51,29 @@ async function deriveKey(passphrase: string): Promise<CryptoKey> {
       hash: 'SHA-256'
     },
     material,
+    AES_KEY_LEN
+  )
+  const encryptionKey = await subtle.importKey(
+    'raw',
+    keyBytes,
     { name: 'AES-GCM', length: AES_KEY_LEN },
     false,
     ['encrypt', 'decrypt']
   )
+  const identityKey = await subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const keySpaceSignature = await subtle.sign('HMAC', identityKey, KEY_SPACE_LABEL)
+
+  return {
+    encryptionKey,
+    identityKey,
+    keySpaceId: bytesToHex(new Uint8Array(keySpaceSignature))
+  }
 }
 
 function bytesToB64(bytes: Uint8Array): string {
@@ -60,11 +90,16 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 export class RoomKey {
-  private constructor(private readonly key: CryptoKey) {}
+  private constructor(
+    private readonly key: CryptoKey,
+    private readonly identityKey: CryptoKey,
+    readonly keySpaceId: string
+  ) {}
 
   static async fromPassphrase(passphrase: string): Promise<RoomKey> {
-    const key = await deriveKey(passphrase)
-    return new RoomKey(key)
+    const { encryptionKey, identityKey, keySpaceId } = await deriveKeys(passphrase)
+
+    return new RoomKey(encryptionKey, identityKey, keySpaceId)
   }
 
   async encrypt(plaintext: string): Promise<string> {
@@ -74,6 +109,17 @@ export class RoomKey {
   async decrypt(payload: string): Promise<string> {
     const pt = await this.decryptBytes(payload)
     return new TextDecoder().decode(pt)
+  }
+
+  async personaNameToken(name: string): Promise<string> {
+    const normalizedName = name.trim().toLocaleLowerCase()
+    const signature = await ensureCryptoSubtle().sign(
+      'HMAC',
+      this.identityKey,
+      new TextEncoder().encode(`persona:${normalizedName}`)
+    )
+
+    return bytesToHex(new Uint8Array(signature))
   }
 
   async encryptBytes(bytes: Uint8Array): Promise<string> {

@@ -9,7 +9,6 @@ interface TextMessage {
   username: string
   created_at?: string
   kind?: 'text'
-  typewriter?: boolean
 }
 
 export interface MediaMessage {
@@ -60,36 +59,9 @@ function nickColor(username: string): string {
   return NICK_COLORS[Math.abs(hash) % NICK_COLORS.length]
 }
 
-const TYPEWRITER_PER_CHAR_MS = 100
 const IMAGE_REVEAL_SECTIONS = 5
 const IMAGE_REVEAL_INTERPOLATION_PASSES = 5
 const IMAGE_REVEAL_STEP_MS = 200
-
-function TypewriterText({ text }: { text: string }) {
-  const [displayed, setDisplayed] = useState('')
-  const indexRef = useRef(0)
-
-  useEffect(() => {
-    if (!text) return
-    indexRef.current = 0
-    setDisplayed('')
-    const timer = setInterval(() => {
-      indexRef.current += 1
-      setDisplayed(text.slice(0, indexRef.current))
-      if (indexRef.current >= text.length) clearInterval(timer)
-    }, TYPEWRITER_PER_CHAR_MS)
-    return () => clearInterval(timer)
-  }, [text])
-
-  return (
-    <>
-      {displayed}
-      {displayed.length < text.length && (
-        <span className="block-cursor">█</span>
-      )}
-    </>
-  )
-}
 
 function SpectrumImageReveal({
   src,
@@ -288,11 +260,7 @@ export default function MessageList({ messages }: MessageListProps) {
             <span className="message-nick" style={{ color: nickColor(msg.username) }}>
               &lt;{msg.username.toUpperCase()}&gt;
             </span>{' '}
-            <span className="message-text">
-              {msg.typewriter
-                ? <TypewriterText text={msg.content} />
-                : msg.content}
-            </span>
+            <span className="message-text">{msg.content}</span>
           </span>
         )
       })}

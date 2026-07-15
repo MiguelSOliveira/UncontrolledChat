@@ -30,11 +30,6 @@
   color: #D7D7D7;
 }
 
-.block-cursor {
-  animation: blink 0.5s step-end infinite;
-  color: #FFFF00;
-}
-
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
